@@ -23,7 +23,7 @@ deterministic rule-based engine.
 | `scripts/build-standalone.js` | Node script that regenerates `atelier-standalone.html` from the other files. Uses whitespace-tolerant regexes and throws if a source tag isn't found — see "Standalone build" below. |
 | `manifest.json` | PWA manifest |
 | `sw.js` | Service worker — precaches the app shell, versioned by `CACHE_NAME` |
-| `icons/` | App icons and logo emblem (`logo.png`, `icon-192.png`, `icon-512.png`) featuring high-clarity golden hanger & kurta motif on a light background |
+| `icons/` | App icons and logo emblem (`logo.png`, `icon-192.png`, `icon-512.png`) featuring high-visibility 54px clear vector drawing golden hanger & kurta motif on a light background |
 | `.agents/rules/readme.md` | Standing rule: any code change must be reflected in README + this context file |
 
 ## Critical invariant: two copies of the app must stay in sync

@@ -66,27 +66,27 @@ header.top h1 {
 }
 .brand-wrap { display: flex; align-items: center; gap: 10px; }
 .header-logo-icon {
-  width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--accent-ochre);
-  background: #FAF8F5; object-fit: contain; padding: 2px;
-  box-shadow: 0 4px 14px rgba(201,154,62,0.35); flex-shrink: 0;
+  width: 54px; height: 54px; border-radius: 50%; border: 2.5px solid var(--accent-ochre);
+  background: #FAF8F5; object-fit: contain; padding: 3px;
+  box-shadow: 0 4px 16px rgba(201,154,62,0.4); flex-shrink: 0;
   transition: transform 0.25s ease, border-color 0.25s ease, border-radius 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 }
 .header-logo-icon:hover { transform: scale(1.08) rotate(4deg); }
 .title-block { display: flex; flex-direction: column; }
 .sub-brand {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 1.2px;
-  color: var(--accent-ochre); text-transform: uppercase; margin-top: -2px; font-weight: 600;
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 1.2px;
+  color: var(--accent-ochre); text-transform: uppercase; margin-top: -1px; font-weight: 600;
 }
 
 /* Logo Style Presets */
 [data-logo-style="royal"] .header-logo-icon {
-  border-radius: 50%; border: 2px solid var(--accent-ochre); background: #FAF8F5; box-shadow: 0 4px 14px rgba(201,154,62,0.45);
+  border-radius: 50%; border: 2.5px solid var(--accent-ochre); background: #FAF8F5; box-shadow: 0 4px 16px rgba(201,154,62,0.45);
 }
 [data-logo-style="minimal"] .header-logo-icon {
-  border-radius: 10px; border: 1.5px solid var(--accent-sage); background: #FFFFFF; box-shadow: 0 3px 8px rgba(0,0,0,0.12);
+  border-radius: 14px; border: 2px solid var(--accent-sage); background: #FFFFFF; box-shadow: 0 3px 10px rgba(0,0,0,0.12);
 }
 [data-logo-style="heritage"] .header-logo-icon {
-  border-radius: 14px 14px 4px 4px; border: 2px solid var(--accent-rose); background: #FFF9F6; box-shadow: 0 4px 14px rgba(196,102,127,0.45);
+  border-radius: 18px 18px 6px 6px; border: 2.5px solid var(--accent-rose); background: #FFF9F6; box-shadow: 0 4px 16px rgba(196,102,127,0.45);
 }
 header.top .header-right {
   display: flex; align-items: center; gap: 10px;

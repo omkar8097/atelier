@@ -18,7 +18,7 @@ A mobile-installable outfit stylist application. Your closet is stored as CSV te
 - 🤖 **AI Stylist Mode**: Optionally consults Claude (`claude-3-5-sonnet-latest`) using your personal Anthropic API key stored locally in browser storage when internet is connected.
 - 🔍 **Review Closet Tab (Scenario Readiness & Gap Engine)**: Dedicated Review tab with AI/Rule-based toggle that analyzes total closet inventory, evaluates readiness scores across 5 scenarios (Professional, Casual, Ethnic, Summer, Winter), and recommends missing clothing items with exact matching colors.
 - 🔄 **Disabled Accidental Refresh & Settings Reload**: Pull-to-refresh overscroll and keyboard reload shortcuts (F5 / Ctrl+R) are disabled to prevent accidental state resets; explicit **"Refresh App"** button provided in the Settings tab.
-- 👑 **Luxury Brand Emblem & Clear Light Logo**: High-clarity golden clothes hanger & royal kurta arch logo icon on a bright light background (#FAF8F5 / #FFFFFF container); supports 3 selectable style presets (Royal Emerald & Gold, Modern Minimal, Desi Heritage Arch) in Settings with clean contrast across light & dark themes.
+- 👑 **Luxury Brand Emblem & Large Clear Drawing Logo**: Prominent 54px high-visibility golden clothes hanger & royal kurta line drawing icon on a bright light background (#FAF8F5 / #FFFFFF container); supports 3 selectable style presets (Royal Emerald & Gold, Modern Minimal, Desi Heritage Arch) in Settings with clean contrast across light & dark themes.
 - 📊 **CSV Import/Export in Settings**: Export or import your closet as RFC4180-compliant CSV data at any time directly from the Settings tab.
 
 ## Running on Mobile (With or Without Internet)
