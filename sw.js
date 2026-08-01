@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atelier-v7';
+const CACHE_NAME = 'poshak-v9';
 const SHELL_FILES = [
   './',
   './index.html',

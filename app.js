@@ -1,8 +1,24 @@
 (function () {
   const WEATHER_OPTIONS = ['Sunny', 'Cloudy', 'Rainy', 'Hot', 'Cold', 'Windy', 'Humid', 'Snowy'];
   const MOOD_OPTIONS = ['Confident', 'Relaxed', 'Energetic', 'Cozy', 'Professional', 'Romantic', 'Adventurous', 'Low-key'];
-  const CSV_KEY = 'atelier_csv';
-  const API_KEY_STORAGE = 'atelier_api_key';
+  const CSV_KEY = 'poshak_csv';
+  const API_KEY_STORAGE = 'poshak_api_key';
+  const THEME_KEY = 'poshak_theme';
+
+  const CATEGORY_COLORS = {
+    Top: 'var(--accent-blue)',
+    Bottom: 'var(--accent-sage)',
+    Dress: 'var(--accent-rose)',
+    Outerwear: 'var(--accent-amber)',
+    Shoes: '#8C6E4F',
+    Accessory: 'var(--accent-ochre)'
+  };
+
+  const CONFIDENCE_COLOR = {
+    high: 'var(--success)',
+    medium: 'var(--accent-amber)',
+    low: 'var(--danger)'
+  };
 
   let wardrobe = [];
   let nextId = 1;
@@ -33,6 +49,31 @@
 
   const $ = (sel) => document.querySelector(sel);
 
+  // ---------- theme engine (runs immediately) ----------
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', theme === 'light' ? '#FBF7EF' : '#20261F');
+  }
+
+  function loadTheme() {
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === 'light' || saved === 'dark') return saved;
+    } catch (err) {}
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+
+  let currentTheme = loadTheme();
+  applyTheme(currentTheme);
+
+  $('#theme-toggle').checked = currentTheme === 'light';
+  $('#theme-toggle').addEventListener('change', (e) => {
+    currentTheme = e.target.checked ? 'light' : 'dark';
+    try { localStorage.setItem(THEME_KEY, currentTheme); } catch (err) {}
+    applyTheme(currentTheme);
+  });
+
   // ---------- init ----------
   $('#today-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -41,6 +82,22 @@
   }
   buildChips($('#weather-chips'), WEATHER_OPTIONS, 'weather');
   buildChips($('#mood-chips'), MOOD_OPTIONS, 'mood');
+
+  function buildCategoryChips() {
+    const cats = Object.keys(CATEGORY_COLORS);
+    $('#item-cat-chips').innerHTML = cats.map((c) =>
+      `<button type="button" class="chip cat-chip ${c === 'Top' ? 'sel' : ''}" data-cat="${c}" style="--chip-color:${CATEGORY_COLORS[c]}">${c}</button>`
+    ).join('');
+  }
+  buildCategoryChips();
+
+  $('#item-cat-chips').addEventListener('click', (e) => {
+    const btn = e.target.closest('.cat-chip');
+    if (!btn) return;
+    const cat = btn.dataset.cat;
+    $('#item-cat').value = cat;
+    document.querySelectorAll('.cat-chip').forEach((c) => c.classList.toggle('sel', c.dataset.cat === cat));
+  });
 
   function escapeHtml(s) {
     const d = document.createElement('div');
@@ -61,7 +118,7 @@
   // ---------- chips ----------
   document.addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
-    if (!chip) return;
+    if (!chip || chip.classList.contains('cat-chip')) return;
     const type = chip.dataset.type, value = chip.dataset.value;
     if (type === 'weather') {
       selectedWeather = selectedWeather === value ? null : value;
@@ -76,7 +133,7 @@
     updateCta();
   });
 
-  // ---------- photo handling ----------
+  // ---------- photo handling (480px resolution bump) ----------
   $('#item-photo').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -84,15 +141,16 @@
     reader.onload = (ev) => {
       const img = new Image();
       img.onload = () => {
-        const maxDim = 180;
+        const maxDim = 480;
         const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
         const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        pendingPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+        pendingPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.75);
         $('#photo-preview').style.backgroundImage = `url(${pendingPhotoDataUrl})`;
+        $('#photo-preview').dataset.full = pendingPhotoDataUrl;
         $('#photo-label').textContent = 'Change photo';
         try {
           const data = ctx.getImageData(0, 0, w, h).data;
@@ -109,44 +167,77 @@
     reader.readAsDataURL(file);
   });
 
+  // ---------- bottom sheet controls ----------
+  function openSheet() {
+    $('#item-sheet').classList.add('open');
+    $('#sheet-backdrop').classList.add('open');
+    $('#item-sheet').setAttribute('aria-hidden', 'false');
+  }
+
+  function closeSheet() {
+    $('#item-sheet').classList.remove('open');
+    $('#sheet-backdrop').classList.remove('open');
+    $('#item-sheet').setAttribute('aria-hidden', 'true');
+    resetForm();
+  }
+
+  $('#add-fab').addEventListener('click', () => {
+    resetForm();
+    openSheet();
+  });
+
+  $('#sheet-backdrop').addEventListener('click', closeSheet);
+  $('#cancel-btn').addEventListener('click', closeSheet);
+
   // ---------- closet CRUD ----------
   function resetForm() {
     editingId = null;
     $('#item-name').value = '';
     $('#item-desc').value = '';
     $('#item-cat').value = 'Top';
+    document.querySelectorAll('.cat-chip').forEach((c) => c.classList.toggle('sel', c.dataset.cat === 'Top'));
     $('#item-pattern').value = 'Solid';
     $('#item-size').value = '';
     $('#item-photo').value = '';
     $('#item-color').value = '#5b6b8c';
     pendingPhotoDataUrl = null;
     $('#photo-preview').style.backgroundImage = '';
+    $('#photo-preview').dataset.full = '';
     $('#photo-label').textContent = 'Upload photo';
     $('#form-card-title').textContent = 'Add new piece';
     $('#add-btn').textContent = 'Add to closet';
-    $('#cancel-btn').style.display = 'none';
   }
 
   function renderCloset() {
     const el = $('#closet-list');
     if (wardrobe.length === 0) {
-      el.innerHTML = '<div class="empty-note">Your closet is empty — add your first piece above.</div>';
+      el.innerHTML = '<div class="empty-note">Your closet is empty — tap + to add your first piece.</div>';
     } else {
-      el.innerHTML = wardrobe.map((item) => `
-        <div class="closet-item ${editingId === item.id ? 'editing' : ''}">
-          <div class="thumb" style="background-image:url(${item.photo || ''}); background-color:${item.photo ? 'transparent' : item.hex};"></div>
-          <div class="info">
-            <div class="name">${escapeHtml(item.name)}</div>
-            ${item.description ? `<div class="desc">${escapeHtml(item.description)}</div>` : ''}
-            <div class="meta">${escapeHtml(item.category || item.cat || '')}${item.pattern && item.pattern !== 'Solid' ? ' · ' + escapeHtml(item.pattern) : ''}${item.size ? ' · ' + escapeHtml(item.size) : ''}</div>
+      el.innerHTML = wardrobe.map((item) => {
+        const cat = item.category || item.cat || 'Top';
+        const catColor = CATEGORY_COLORS[cat] || 'var(--accent-sage)';
+        return `
+          <div class="closet-item ${editingId === item.id ? 'editing' : ''}" style="--cat-color:${catColor}">
+            <div class="thumb" data-full="${item.photo || ''}" style="background-image:url(${item.photo || ''}); background-color:${item.photo ? 'transparent' : item.hex};"></div>
+            <div class="info">
+              <div class="name">${escapeHtml(item.name)}</div>
+              ${item.description ? `<div class="desc">${escapeHtml(item.description)}</div>` : ''}
+              <div class="meta">
+                <span style="color:${catColor};font-weight:600;">${escapeHtml(cat)}</span>
+                ${item.pattern && item.pattern !== 'Solid' ? ' · ' + escapeHtml(item.pattern) : ''}
+                ${item.size ? ' · ' + escapeHtml(item.size) : ''}
+              </div>
+              <div class="footer-row">
+                <span class="dot" style="background:${item.hex}"></span>
+                <div class="item-actions">
+                  <span class="edit" data-edit="${item.id}" title="Edit item">✏️</span>
+                  <span class="rm" data-rm="${item.id}" title="Delete item">×</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <span class="dot" style="background:${item.hex}"></span>
-          <div class="item-actions">
-            <span class="edit" data-edit="${item.id}" title="Edit item">✏️</span>
-            <span class="rm" data-rm="${item.id}" title="Delete item">×</span>
-          </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
     updateCta();
   }
@@ -160,17 +251,20 @@
       editingId = item.id;
       $('#item-name').value = item.name || '';
       $('#item-desc').value = item.description || '';
-      $('#item-cat').value = item.category || item.cat || 'Top';
+      const cat = item.category || item.cat || 'Top';
+      $('#item-cat').value = cat;
+      document.querySelectorAll('.cat-chip').forEach((c) => c.classList.toggle('sel', c.dataset.cat === cat));
       $('#item-pattern').value = item.pattern || 'Solid';
       $('#item-size').value = item.size || '';
       $('#item-color').value = item.hex || '#5b6b8c';
       pendingPhotoDataUrl = item.photo || null;
       $('#photo-preview').style.backgroundImage = item.photo ? `url(${item.photo})` : '';
+      $('#photo-preview').dataset.full = item.photo || '';
       $('#photo-label').textContent = item.photo ? 'Change photo' : 'Upload photo';
       $('#form-card-title').textContent = 'Editing piece';
       $('#add-btn').textContent = 'Save changes';
-      $('#cancel-btn').style.display = 'block';
       renderCloset();
+      openSheet();
       $('#item-name').focus();
       return;
     }
@@ -185,8 +279,6 @@
       return;
     }
   });
-
-  $('#cancel-btn').addEventListener('click', resetForm);
 
   $('#add-btn').addEventListener('click', () => {
     const nameEl = $('#item-name');
@@ -226,7 +318,7 @@
         photo: pendingPhotoDataUrl || ''
       });
     }
-    resetForm();
+    closeSheet();
     renderCloset();
     persistWardrobe();
   });
@@ -255,7 +347,7 @@
 
   function loadWardrobe() {
     try {
-      const csv = localStorage.getItem(CSV_KEY);
+      const csv = localStorage.getItem(CSV_KEY) || localStorage.getItem('atelier_csv');
       if (csv) {
         wardrobe = csvToItems(csv);
         nextId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0) + 1;
@@ -265,7 +357,7 @@
   }
 
   $('#export-btn').addEventListener('click', () => {
-    downloadCsv(itemsToCsv(wardrobe), 'atelier-closet.csv');
+    downloadCsv(itemsToCsv(wardrobe), 'poshak-closet.csv');
   });
 
   $('#import-btn').addEventListener('click', () => $('#import-file').click());
@@ -391,6 +483,7 @@
     if (h < 0) h += 360;
     return h;
   }
+
   function hueToXY(hue, r, cx, cy) {
     const rad = (hue - 90) * Math.PI / 180;
     return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
@@ -410,10 +503,11 @@
     const cx = 60, cy = 60, r = 46;
     const dots = picks.map((p) => {
       const { x, y } = hueToXY(hexToHue(p.hex), r, cx, cy);
-      return `<div class="dot" style="left:${x}px; top:${y}px; background:${p.hex}; position:absolute; width:16px; height:16px; border-radius:50%; border:2px solid var(--paper); box-shadow:0 0 0 1px rgba(0,0,0,0.25); transform:translate(-50%,-50%);"></div>`;
+      return `<div class="dot" style="left:${x}px; top:${y}px; background:${p.hex}; position:absolute; width:16px; height:16px; border-radius:50%; border:2px solid var(--surface); box-shadow:0 0 0 1px rgba(0,0,0,0.25); transform:translate(-50%,-50%);"></div>`;
     }).join('');
 
     const conf = (parsed.confidence || 'medium').toLowerCase();
+    const confColor = CONFIDENCE_COLOR[conf] || 'var(--accent-amber)';
 
     resultWrap.innerHTML = `
       <div class="result-card">
@@ -421,26 +515,61 @@
         <div class="eyebrow">${selectedWeather} · ${selectedMood}</div>
         <h3>Today's look</h3>
         <ul class="pick-list">
-          ${picks.map((p) => `
-            <li>
-              <div class="thumb" style="background-image:url(${p.photo || ''}); background-color:${p.photo ? 'transparent' : p.hex};"></div>
-              <span class="swatch" style="background:${p.hex}"></span>
-              <span>${escapeHtml(p.name)}</span>
-              <span class="cat">${escapeHtml(p.category || p.cat || '')}${p.pattern && p.pattern !== 'Solid' ? ' (' + escapeHtml(p.pattern) + ')' : ''}</span>
-              ${p.size ? `<span class="size">${escapeHtml(p.size)}</span>` : ''}
-            </li>
-          `).join('')}
+          ${picks.map((p) => {
+            const cat = p.category || p.cat || 'Top';
+            const catColor = CATEGORY_COLORS[cat] || 'inherit';
+            return `
+              <li>
+                <div class="thumb" data-full="${p.photo || ''}" style="background-image:url(${p.photo || ''}); background-color:${p.photo ? 'transparent' : p.hex};"></div>
+                <span class="swatch" style="background:${p.hex}"></span>
+                <span>${escapeHtml(p.name)}</span>
+                <span class="cat" style="color:${catColor}">${escapeHtml(cat)}${p.pattern && p.pattern !== 'Solid' ? ' (' + escapeHtml(p.pattern) + ')' : ''}</span>
+                ${p.size ? `<span class="size">${escapeHtml(p.size)}</span>` : ''}
+              </li>
+            `;
+          }).join('')}
         </ul>
         <div class="reasoning">
           <p><span class="label">Color story</span>${escapeHtml(parsed.color_story || '')}</p>
           <p><span class="label">Weather fit</span>${escapeHtml(parsed.weather_fit || '')}</p>
           <p><span class="label">Mood fit</span>${escapeHtml(parsed.mood_fit || '')}</p>
         </div>
-        <span class="confidence">Confidence: ${conf}</span>
+        <span class="confidence" style="background:${confColor};color:#ffffff;">Confidence: ${conf}</span>
         <div style="position:relative;width:120px;height:120px;border-radius:50%;background:conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);opacity:0.9;margin:16px auto 0;">${dots}</div>
       </div>
     `;
   }
+
+  // ---------- image lightbox ----------
+  function openLightbox(url) {
+    if (!url) return;
+    $('#lightbox-img').src = url;
+    $('#lightbox').classList.add('open');
+    $('#lightbox').setAttribute('aria-hidden', 'false');
+  }
+
+  function closeLightbox() {
+    $('#lightbox').classList.remove('open');
+    $('#lightbox').setAttribute('aria-hidden', 'true');
+    setTimeout(() => { $('#lightbox-img').src = ''; }, 200);
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.item-actions')) return;
+    const el = e.target.closest('[data-full]');
+    if (el) {
+      const fullUrl = el.dataset.full;
+      if (fullUrl) openLightbox(fullUrl);
+    }
+  });
+
+  $('#lightbox').addEventListener('click', (e) => {
+    if (e.target.id === 'lightbox') closeLightbox();
+  });
+  $('#lightbox-close').addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  });
 
   // ---------- service worker ----------
   if ('serviceWorker' in navigator) {

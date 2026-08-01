@@ -1,12 +1,15 @@
-# Atelier — Progressive Web App
+# Poshak (पोशाक) — Desi Outfit Stylist PWA
 
-A mobile-installable outfit stylist. Your closet is stored as CSV text on your device; you choose per-request whether Claude picks the outfit or the app's own built-in styling rules do.
+A mobile-installable outfit stylist application. Your closet is stored as CSV text on your device; you choose per-request whether Claude picks the outfit or the app's own built-in styling rules do.
 
 ## Key Features
 
+- 👕 **Poshak (पोशाक)**: Authentic Desi-styled wardrobe manager & outfit stylist.
 - 📱 **Standalone Mobile PWA & Offline App**: Run directly as a single-file application (`atelier-standalone.html`) or install as a PWA on iOS (Safari) and Android (Chrome).
-- 👕 **Closet Management**: Add, edit, or delete items in your closet. Customize item name, description, category (Top, Bottom, Dress, Outerwear, Shoes, Accessory), pattern (Solid, Striped, Plaid, Floral, Textured), size, color swatch, and compressed photo.
-- ✏️ **Item Editing**: Tap the edit pencil (`✏️`) on any piece in your closet to pre-fill and update its details directly, with options to save changes or cancel.
+- 🌗 **Light / Dark Mode Toggle**: Instant header sun/moon switch with role-based design tokens, `prefers-color-scheme` auto-detection, and local storage persistence.
+- 🎨 **Category Color System**: Dedicated color palette per garment category (Top: Blue, Bottom: Sage, Dress: Rose, Outerwear: Amber, Shoes: Brown, Accessory: Ochre) applied to card borders, category pill selectors, and result lists.
+- 🔍 **Tap-to-Enlarge Image Lightbox**: Tap any photo thumbnail in your closet or result recommendations to view full-resolution crisp garment photos with backdrop/Escape dismissal.
+- 📱 **2-Column Closet Grid & Slide-up Bottom Sheet**: Decluttered closet view with 2-column item grid and floating `+` action button that slides open a smooth bottom sheet for adding or editing pieces.
 - 🎲 **Outfit Variety Engine ("Get another look")**: Tapping "Get my look" / "Get another look" repeatedly produces distinct, high-quality outfits using top-3 shortlisting, `score^3` weighted random selection, and recent-exclusion history per weather/mood/occasion context.
 - 🎨 **Pattern Matching & Color Harmony SOP**: Scores HSL hue relationships (analogous, complementary, neutrals), mood targets, and enforces pattern rules (max 1 busy pattern like Striped/Plaid/Floral among main garments).
 - 🤖 **AI Stylist Mode**: Optionally consults Claude (`claude-3-5-sonnet-latest`) using your personal Anthropic API key stored locally in browser storage when internet is connected.
@@ -31,26 +34,27 @@ npx serve .
 - **Android (Chrome)**: Menu (⋮) → "Add to Home screen."
 - **iOS (Safari)**: Share icon → "Add to Home Screen."
 
-## Using AI mode
+## Standalone Build Automation
 
-1. Get an API key from console.anthropic.com.
-2. Open the app → **Settings** tab → paste the key → **Save key**.
-3. On the **Today** tab, flip **Use AI** on before tapping **Get my look**.
+To keep `atelier-standalone.html` automatically synchronized with `index.html`, `styles.css`, `csv-utils.js`, `outfit-engine.js`, and `app.js`, run:
 
-Leave **Use AI** off and the app uses its own local rules instead — no network call, no server required, no key needed.
+```bash
+node scripts/build-standalone.js
+```
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `index.html` | App shell — three tabs: Closet (with Add/Edit/Pattern form), Today, Settings |
-| `atelier-standalone.html` | **Single-file standalone bundle**: Complete HTML + CSS + JS in 1 file for 100% offline file access |
-| `styles.css` | Visual design system, dark theme, and PWA styling |
-| `app.js` | UI wiring, closet CRUD, pattern support, recent-exclusion history, tab navigation |
-| `csv-utils.js` | Reads/writes closet as CSV (parsing, escaping, category & pattern mapping, download) |
-| `outfit-engine.js` | Outfit engines: `buildRuleBasedOutfit()` (shortlisting, weighted random pick, pattern SOP, HSL/weather/mood math) and `requestAiOutfit()` (Claude API) |
-| `manifest.json` | PWA install metadata (standalone display mode, maskable icons, theme colors) |
-| `sw.js` | Service worker — precaches app shell (`atelier-v7`) with offline fetch fallback for standalone execution |
+| `index.html` | App shell — Poshak header, Closet (with 2-col grid & sheet form), Today, Settings, Theme Switch, Lightbox |
+| `atelier-standalone.html` | **Single-file standalone bundle**: Complete HTML + CSS + JS in 1 file compiled automatically via `scripts/build-standalone.js` |
+| `styles.css` | Design system, role-based CSS tokens, light/dark themes, bottom sheet, FAB, and lightbox styling |
+| `app.js` | UI wiring, theme engine, category colors, bottom sheet controls, lightbox, closet CRUD |
+| `csv-utils.js` | Reads/writes closet as CSV (parsing, escaping, header normalization, UTF-8 BOM, download) |
+| `outfit-engine.js` | Outfit engines: `buildRuleBasedOutfit()` (shortlisting, weighted random pick, pattern SOP) and `requestAiOutfit()` (Claude API) |
+| `scripts/build-standalone.js` | Build automation script to generate `atelier-standalone.html` |
+| `manifest.json` | PWA install metadata (`Poshak — Outfit Stylist`, standalone display mode, maskable icons) |
+| `sw.js` | Service worker — precaches app shell (`poshak-v9`) with offline fetch fallback for standalone execution |
 | `icons/` | App icons (192x192 and 512x512) for home screen installation |
 
 ## Data model (one CSV row per item)

@@ -1,6 +1,6 @@
 {
-  "name": "Atelier — Outfit Stylist",
-  "short_name": "Atelier",
+  "name": "Poshak — Outfit Stylist",
+  "short_name": "Poshak",
   "description": "Your closet, your rules or AI's — decide today's outfit.",
   "start_url": "./index.html",
   "scope": "./",

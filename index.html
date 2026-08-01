@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#20261F">
-<title>Atelier</title>
+<title>Poshak — Outfit Stylist</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,62 +16,20 @@
 <div id="app">
 
   <header class="top">
-    <h1>Atelier</h1>
-    <div class="date" id="today-date"></div>
+    <h1>Poshak</h1>
+    <div class="header-right">
+      <div class="date" id="today-date"></div>
+      <label class="theme-switch" title="Toggle theme">
+        <input type="checkbox" id="theme-toggle">
+        <span class="slider theme-slider"></span>
+      </label>
+    </div>
   </header>
 
   <!-- CLOSET VIEW -->
   <section class="view active" id="view-closet">
     <h2 class="section-title">Your closet</h2>
     <p class="hint">Photo, description, category, and size for each piece. Everything lives in a local CSV — export it any time.</p>
-
-    <div class="card">
-      <label class="field-label" id="form-card-title">Add new piece</label>
-      <label class="field-label" style="font-size:9px;margin-top:-2px;margin-bottom:8px;">Name</label>
-      <input type="text" id="item-name" placeholder="e.g. Navy chinos" maxlength="40">
-
-      <label class="field-label">Description</label>
-      <textarea id="item-desc" placeholder="e.g. Slim fit, cotton twill, slightly cropped" rows="2"></textarea>
-
-      <label class="field-label">Category</label>
-      <select id="item-cat">
-        <option value="Top">Top</option>
-        <option value="Bottom">Bottom</option>
-        <option value="Dress">Dress</option>
-        <option value="Outerwear">Outerwear</option>
-        <option value="Shoes">Shoes</option>
-        <option value="Accessory">Accessory</option>
-      </select>
-
-      <label class="field-label">Pattern</label>
-      <select id="item-pattern">
-        <option value="Solid">Solid</option>
-        <option value="Striped">Striped</option>
-        <option value="Plaid">Plaid</option>
-        <option value="Floral">Floral</option>
-        <option value="Textured">Textured</option>
-      </select>
-
-      <label class="field-label">Size (optional)</label>
-      <input type="text" id="item-size" placeholder="M / 32 / 9 UK">
-
-      <div class="photo-row">
-        <div class="photo-preview" id="photo-preview"></div>
-        <div class="photo-controls">
-          <label class="filelabel" for="item-photo" id="photo-label">Upload photo</label>
-          <input type="file" id="item-photo" accept="image/*" capture="environment">
-          <div class="color-row">
-            <span>Color</span>
-            <input type="color" id="item-color" value="#5b6b8c">
-          </div>
-        </div>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-primary" id="add-btn">Add to closet</button>
-        <button class="btn btn-ghost" id="cancel-btn" style="display:none;">Cancel</button>
-      </div>
-    </div>
 
     <div class="closet-list" id="closet-list"></div>
 
@@ -144,6 +102,61 @@
       <button class="btn btn-ghost" id="clear-data-btn">Clear all closet data</button>
     </div>
   </section>
+
+  <!-- Floating Add Button -->
+  <button class="fab" id="add-fab" aria-label="Add piece">+</button>
+
+  <!-- Bottom Sheet Form Overlay -->
+  <div class="sheet-backdrop" id="sheet-backdrop"></div>
+  <div class="sheet" id="item-sheet" aria-hidden="true">
+    <div class="sheet-handle"></div>
+    <label class="field-label" id="form-card-title" style="font-size:13px;color:var(--text);margin-bottom:12px;">Add new piece</label>
+    
+    <label class="field-label" style="font-size:9px;margin-top:-2px;margin-bottom:6px;">Name</label>
+    <input type="text" id="item-name" placeholder="e.g. Navy chinos" maxlength="40">
+
+    <label class="field-label">Description</label>
+    <textarea id="item-desc" placeholder="e.g. Slim fit, cotton twill, slightly cropped" rows="2"></textarea>
+
+    <label class="field-label">Category</label>
+    <div class="cat-chipset" id="item-cat-chips"></div>
+    <input type="hidden" id="item-cat" value="Top">
+
+    <label class="field-label">Pattern</label>
+    <select id="item-pattern">
+      <option value="Solid">Solid</option>
+      <option value="Striped">Striped</option>
+      <option value="Plaid">Plaid</option>
+      <option value="Floral">Floral</option>
+      <option value="Textured">Textured</option>
+    </select>
+
+    <label class="field-label">Size (optional)</label>
+    <input type="text" id="item-size" placeholder="M / 32 / 9 UK">
+
+    <div class="photo-row">
+      <div class="photo-preview" id="photo-preview"></div>
+      <div class="photo-controls">
+        <label class="filelabel" for="item-photo" id="photo-label">Upload photo</label>
+        <input type="file" id="item-photo" accept="image/*" capture="environment">
+        <div class="color-row">
+          <span>Color</span>
+          <input type="color" id="item-color" value="#5b6b8c">
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="add-btn">Add to closet</button>
+      <button class="btn btn-ghost" id="cancel-btn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Lightbox Overlay -->
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <button class="lightbox-close" id="lightbox-close" aria-label="Close">×</button>
+    <img id="lightbox-img" src="" alt="">
+  </div>
 
   <nav class="tabbar">
     <button class="tab-btn active" data-view="closet"><span>Closet</span><span class="dot-ind"></span></button>
