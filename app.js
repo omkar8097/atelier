@@ -463,6 +463,20 @@
     renderCloset();
   });
 
+  const refreshAppBtn = $('#refresh-app-btn');
+  if (refreshAppBtn) {
+    refreshAppBtn.addEventListener('click', () => {
+      window.location.reload();
+    });
+  }
+
+  // Disable accidental keyboard refresh (F5 / Ctrl+R / Cmd+R)
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'F5' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r')) {
+      e.preventDefault();
+    }
+  });
+
   // ---------- AI toggle ----------
   $('#ai-toggle').addEventListener('change', (e) => {
     $('#ai-sub').textContent = e.target.checked

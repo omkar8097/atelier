@@ -16,6 +16,7 @@ A mobile-installable outfit stylist application. Your closet is stored as CSV te
 - 🎲 **Outfit Variety Engine ("Get another look")**: Tapping "Get my look" / "Get another look" repeatedly produces distinct, high-quality outfits using top-3 shortlisting, `score^3` weighted random selection, and recent-exclusion history per weather/mood/occasion context.
 - 🎨 **Pattern Matching & Color Harmony SOP**: Scores HSL hue relationships (analogous, complementary, neutrals), mood targets, formality fit, and enforces pattern rules (max 1 busy pattern like Striped/Plaid/Floral among main garments).
 - 🤖 **AI Stylist Mode**: Optionally consults Claude (`claude-3-5-sonnet-latest`) using your personal Anthropic API key stored locally in browser storage when internet is connected.
+- 🔄 **Disabled Accidental Refresh & Settings Reload**: Pull-to-refresh overscroll and keyboard reload shortcuts (F5 / Ctrl+R) are disabled to prevent accidental state resets; explicit **"Refresh App"** button provided in the Settings tab.
 - 📊 **CSV Import/Export**: Export or import your closet as RFC4180-compliant CSV data at any time.
 
 ## Running on Mobile (With or Without Internet)
@@ -57,7 +58,7 @@ node scripts/build-standalone.js
 | `outfit-engine.js` | Outfit engines: `buildRuleBasedOutfit()` (shortlisting, formality SOP, item justifications, scorecards) and `requestAiOutfit()` (Claude API) |
 | `scripts/build-standalone.js` | Build automation script to generate `atelier-standalone.html` |
 | `manifest.json` | PWA install metadata (`Poshak — Outfit Stylist`, standalone display mode, maskable icons) |
-| `sw.js` | Service worker — precaches app shell (`poshak-v11`) with offline fetch fallback for standalone execution |
+| `sw.js` | Service worker — precaches app shell (`poshak-v12`) with offline fetch fallback for standalone execution |
 | `icons/` | App icons (192x192 and 512x512) for home screen installation |
 
 ## Data model (one CSV row per item)

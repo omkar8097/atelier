@@ -39,7 +39,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); transition: background-color 0.2s ease, color 0.2s ease; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); transition: background-color 0.2s ease, color 0.2s ease; overscroll-behavior-y: none; }
 body {
   font-family: 'Inter', sans-serif;
   -webkit-tap-highlight-color: transparent;

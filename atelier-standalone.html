@@ -52,7 +52,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); transition: background-color 0.2s ease, color 0.2s ease; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); transition: background-color 0.2s ease, color 0.2s ease; overscroll-behavior-y: none; }
 body {
   font-family: 'Inter', sans-serif;
   -webkit-tap-highlight-color: transparent;
@@ -483,6 +483,12 @@ nav.tabbar button[data-view="settings"].active .dot-ind { background: var(--acce
       <label class="field-label">Data</label>
       <p class="hint" style="margin-bottom:10px;">Your closet is stored as CSV text in this browser. Clearing it removes every item and photo from this device.</p>
       <button class="btn btn-ghost" id="clear-data-btn">Clear all closet data</button>
+    </div>
+
+    <div class="card">
+      <label class="field-label">App Reload & Refresh</label>
+      <p class="hint" style="margin-bottom:10px;">Accidental page pull-to-refresh is disabled. Tap below whenever you want to reload Poshak and fetch updates.</p>
+      <button class="btn btn-primary" id="refresh-app-btn">Refresh App</button>
     </div>
   </section>
 
