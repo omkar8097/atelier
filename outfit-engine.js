@@ -82,7 +82,7 @@ const HOT_WEATHER = ['Hot', 'Sunny', 'Humid'];
 // ---------- rule-based outfit builder ----------
 
 function bestOfCategory(items, category, mood, baseHslList) {
-  const pool = items.filter((i) => i.cat === category);
+  const pool = items.filter((i) => (i.category || i.cat) === category);
   if (pool.length === 0) return null;
   let best = null, bestScore = -1;
   pool.forEach((item) => {
@@ -164,7 +164,7 @@ function buildRuleBasedOutfit(wardrobe, ctx) {
     : 'The palette leans eclectic — it works, but the colors don\u2019t lean on each other much.';
 
   const weatherFit = needsOuterwear
-    ? (picks.some(p => p.cat === 'Outerwear')
+    ? (picks.some(p => (p.category || p.cat) === 'Outerwear')
         ? 'Outerwear is included to handle the ' + weather.toLowerCase() + ' conditions.'
         : 'No outerwear was available in the closet for ' + weather.toLowerCase() + ' conditions — consider adding one.')
     : avoidOuterwear
@@ -192,7 +192,7 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
   const { weather, temp, mood, occasion } = ctx;
   const wardrobeForPrompt = wardrobe.map((i) => ({
     id: String(i.id), name: i.name, description: i.description || undefined,
-    category: i.cat, size: i.size || undefined, hex: i.hex
+    category: i.category || i.cat, size: i.size || undefined, hex: i.hex
   }));
 
   const prompt = `You are a thoughtful, concise personal stylist. Here is the person's wardrobe as JSON:
@@ -217,7 +217,7 @@ Respond with ONLY valid JSON \u2014 no markdown fences, no preamble, no trailing
       'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-3-5-sonnet-latest',
       max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }]
     })

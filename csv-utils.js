@@ -98,6 +98,8 @@ function csvToItems(text) {
       obj[col] = r[idx] !== undefined ? r[idx] : '';
     });
     obj.id = Number(obj.id) || 0;
+    if (obj.category && !obj.cat) obj.cat = obj.category;
+    if (obj.cat && !obj.category) obj.category = obj.cat;
     return obj;
   });
 }

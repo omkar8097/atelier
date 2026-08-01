@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atelier-v1';
+const CACHE_NAME = 'atelier-v4';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -28,11 +28,34 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // network-first for the Anthropic API, cache-first for everything else (app shell)
+  // Never intercept or cache Anthropic API calls
   if (event.request.url.includes('api.anthropic.com')) {
-    return; // let it hit the network directly, never cache API calls
+    return;
   }
+
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    caches.match(event.request, { ignoreSearch: true }).then((cached) => {
+      if (cached) {
+        return cached;
+      }
+
+      // If not in cache, try network and catch network errors gracefully
+      return fetch(event.request)
+        .then((response) => {
+          // Cache external fonts if fetched online
+          if (response.ok && (event.request.url.includes('fonts.googleapis.com') || event.request.url.includes('fonts.gstatic.com'))) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => {
+          // Offline fallback for navigation requests
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html') || caches.match('./');
+          }
+          return new Response('', { status: 503, statusText: 'Offline' });
+        });
+    })
   );
 });

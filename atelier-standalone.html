@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#20261F">
+<title>Atelier — Outfit Stylist</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --ink:#20261F;
+  --ink-soft:#2B3229;
+  --ink-softer:#333B30;
+  --paper:#F6F1E7;
+  --chalk:#E9E4D6;
+  --chalk-dim:#B9B3A2;
+  --plum:#8C5E75;
+  --ochre:#C99A3E;
+  --sage:#7C8F6E;
+  --danger:#B5603C;
+  --line: rgba(233,228,214,0.16);
+  --line-strong: rgba(233,228,214,0.30);
+  --radius: 10px;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--ink);}
+body{
+  font-family:'Inter',sans-serif;
+  color:var(--chalk);
+  -webkit-tap-highlight-color:transparent;
+}
+
+#app{
+  max-width:480px;
+  margin:0 auto;
+  min-height:100vh;
+  padding:20px 16px 90px;
+  position:relative;
+}
+
+header.top{
+  display:flex;justify-content:space-between;align-items:baseline;
+  margin-bottom:18px;
+}
+header.top h1{
+  font-family:'Fraunces',serif;font-weight:600;font-size:26px;margin:0;
+}
+header.top .date{
+  font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--chalk-dim);
+}
+
+.view{display:none;}
+.view.active{display:block;}
+
+h2.section-title{
+  font-family:'Fraunces',serif;font-weight:500;font-size:18px;margin:0 0 4px;
+}
+p.hint{
+  font-size:12.5px;color:var(--chalk-dim);margin:0 0 16px;line-height:1.5;
+}
+
+.card{
+  background:var(--ink-soft);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px;margin-bottom:16px;
+}
+
+label.field-label{
+  display:block;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1px;
+  text-transform:uppercase;color:var(--chalk-dim);margin-bottom:6px;
+}
+
+input[type=text], textarea, select{
+  width:100%;background:var(--ink);border:1px solid var(--line-strong);color:var(--chalk);
+  font-family:'Inter',sans-serif;font-size:14px;padding:10px 11px;border-radius:8px;
+  margin-bottom:12px;
+}
+textarea{resize:vertical;min-height:44px;}
+
+.photo-row{
+  display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:12px;
+  border:1px dashed var(--line-strong);border-radius:8px;
+}
+.photo-preview{
+  width:56px;height:56px;border-radius:8px;background:var(--ink);
+  background-size:cover;background-position:center;border:1px solid var(--line-strong);flex-shrink:0;
+}
+.photo-controls{flex:1;display:flex;flex-direction:column;gap:8px;}
+label.filelabel{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;text-transform:uppercase;
+  color:var(--sage);text-decoration:underline;cursor:pointer;width:fit-content;
+}
+input[type=file]{display:none;}
+.color-row{display:flex;align-items:center;gap:8px;}
+.color-row span{font-size:11px;color:var(--chalk-dim);}
+input[type=color]{
+  -webkit-appearance:none;appearance:none;width:32px;height:28px;border:1px solid var(--line-strong);
+  border-radius:6px;background:var(--ink);padding:2px;
+}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:4px;}
+
+.btn{
+  width:100%;border:none;border-radius:8px;padding:13px 16px;font-family:'IBM Plex Mono',monospace;
+  font-size:12.5px;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;
+}
+.btn-primary{background:var(--sage);color:var(--ink);}
+.btn-light{background:var(--chalk);color:var(--ink);}
+.btn-ghost{background:transparent;color:var(--chalk);border:1px solid var(--line-strong);}
+.btn-row{display:flex;gap:10px;}
+.btn-row .btn{flex:1;}
+.btn:disabled{opacity:0.35;}
+
+.closet-list{display:flex;flex-direction:column;gap:10px;}
+.closet-item{
+  display:flex;align-items:center;gap:12px;background:var(--paper);color:var(--ink);
+  border-radius:8px;padding:10px;
+}
+.closet-item .thumb{
+  width:46px;height:46px;border-radius:6px;background-size:cover;background-position:center;
+  border:1px solid rgba(0,0,0,0.12);flex-shrink:0;
+}
+.closet-item .info{flex:1;min-width:0;}
+.closet-item .name{font-size:13.5px;font-weight:600;}
+.closet-item .desc{
+  font-size:11.5px;color:rgba(32,38,31,0.65);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.closet-item .meta{
+  font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;
+  color:rgba(32,38,31,0.5);margin-top:2px;
+}
+.closet-item .dot{
+  width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,0.2);flex-shrink:0;
+}
+.closet-item .item-actions{display:flex;align-items:center;gap:4px;margin-left:4px;}
+.closet-item .edit{color:rgba(32,38,31,0.5);font-size:13px;line-height:1;padding:4px;cursor:pointer;transition:color 0.15s;}
+.closet-item .edit:hover{color:var(--ink);}
+.closet-item .rm{color:rgba(32,38,31,0.4);font-size:18px;line-height:1;padding:4px;cursor:pointer;transition:color 0.15s;}
+.closet-item .rm:hover{color:var(--danger);}
+.closet-item.editing{outline:2px solid var(--ochre);outline-offset:-1px;}
+
+.empty-note{font-size:12.5px;color:var(--chalk-dim);font-style:italic;padding:8px 0;}
+
+.chipset{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;}
+.chip{
+  padding:7px 13px;border:1px solid var(--line-strong);border-radius:20px;font-size:12.5px;
+  background:transparent;color:var(--chalk);
+}
+.chip.sel{background:var(--ochre);border-color:var(--ochre);color:var(--ink);font-weight:600;}
+.chip.mood.sel{background:var(--plum);border-color:var(--plum);}
+
+.toggle-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--ink-softer);border-radius:8px;padding:12px 14px;margin-bottom:14px;
+}
+.toggle-row .label-block{display:flex;flex-direction:column;}
+.toggle-row .t-title{font-size:13.5px;font-weight:600;}
+.toggle-row .t-sub{font-size:11px;color:var(--chalk-dim);margin-top:2px;}
+.switch{
+  position:relative;width:44px;height:26px;flex-shrink:0;
+}
+.switch input{opacity:0;width:0;height:0;}
+.slider{
+  position:absolute;cursor:pointer;inset:0;background:var(--line-strong);border-radius:20px;
+  transition:.15s;
+}
+.slider:before{
+  content:'';position:absolute;height:20px;width:20px;left:3px;top:3px;background:var(--chalk);
+  border-radius:50%;transition:.15s;
+}
+.switch input:checked + .slider{background:var(--sage);}
+.switch input:checked + .slider:before{transform:translateX(18px);background:var(--ink);}
+
+.status-line{
+  font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--chalk-dim);
+  margin-top:10px;text-align:center;
+}
+.status-line.err{color:var(--danger);}
+.spinner{
+  display:inline-block;width:11px;height:11px;border-radius:50%;
+  border:2px solid var(--chalk-dim);border-top-color:var(--chalk);
+  animation:spin .7s linear infinite;margin-right:7px;vertical-align:-1px;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.result-card{
+  background:var(--paper);color:var(--ink);border-radius:var(--radius);padding:20px;margin-top:16px;
+}
+.result-card .eyebrow{
+  font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:1.2px;text-transform:uppercase;
+  color:rgba(32,38,31,0.55);margin-bottom:6px;
+}
+.result-card h3{font-family:'Fraunces',serif;font-size:21px;font-weight:600;margin:0 0 14px;}
+.pick-list{list-style:none;padding:0;margin:0 0 16px;}
+.pick-list li{
+  display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid rgba(32,38,31,0.1);font-size:13.5px;
+}
+.pick-list li:last-child{border-bottom:none;}
+.pick-list .thumb{
+  width:32px;height:32px;border-radius:5px;background-size:cover;background-position:center;
+  border:1px solid rgba(0,0,0,0.12);flex-shrink:0;
+}
+.pick-list .swatch{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,0.2);flex-shrink:0;}
+.pick-list .cat{
+  font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;color:rgba(32,38,31,0.45);
+}
+.pick-list .size{
+  font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(32,38,31,0.45);margin-left:auto;
+}
+.reasoning p{font-size:13px;line-height:1.55;margin:0 0 9px;}
+.reasoning .label{
+  font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:1px;
+  color:rgba(32,38,31,0.5);display:block;margin-bottom:2px;
+}
+.confidence{
+  display:inline-block;margin-top:2px;padding:3px 9px;border-radius:12px;
+  font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;
+  background:rgba(32,38,31,0.08);
+}
+.engine-tag{
+  display:inline-block;margin-bottom:10px;padding:3px 9px;border-radius:12px;
+  font-family:'IBM Plex Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.5px;
+  background:rgba(32,38,31,0.08);
+}
+
+.settings-note{
+  font-size:12px;line-height:1.6;color:var(--chalk-dim);margin-bottom:14px;
+  background:var(--ink-softer);padding:12px;border-radius:8px;border-left:3px solid var(--ochre);
+}
+
+nav.tabbar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--ink-soft);border-top:1px solid var(--line);
+  display:flex;max-width:480px;margin:0 auto;
+}
+nav.tabbar button{
+  flex:1;background:none;border:none;color:var(--chalk-dim);padding:12px 0 10px;
+  font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:0.5px;text-transform:uppercase;
+  cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+nav.tabbar button.active{color:var(--chalk);}
+nav.tabbar button .dot-ind{width:5px;height:5px;border-radius:50%;background:transparent;}
+nav.tabbar button.active .dot-ind{background:var(--ochre);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <h1>Atelier</h1>
+    <div class="date" id="today-date"></div>
+  </header>
+
+  <!-- CLOSET VIEW -->
+  <section class="view active" id="view-closet">
+    <h2 class="section-title">Your closet</h2>
+    <p class="hint">Photo, description, category, and size for each piece. Everything lives in a local CSV — export it any time.</p>
+
+    <div class="card">
+      <label class="field-label" id="form-card-title">Add new piece</label>
+      <label class="field-label" style="font-size:9px;margin-top:-2px;margin-bottom:8px;">Name</label>
+      <input type="text" id="item-name" placeholder="e.g. Navy chinos" maxlength="40">
+
+      <label class="field-label">Description</label>
+      <textarea id="item-desc" placeholder="e.g. Slim fit, cotton twill, slightly cropped" rows="2"></textarea>
+
+      <label class="field-label">Category</label>
+      <select id="item-cat">
+        <option value="Top">Top</option>
+        <option value="Bottom">Bottom</option>
+        <option value="Dress">Dress</option>
+        <option value="Outerwear">Outerwear</option>
+        <option value="Shoes">Shoes</option>
+        <option value="Accessory">Accessory</option>
+      </select>
+
+      <label class="field-label">Size (optional)</label>
+      <input type="text" id="item-size" placeholder="M / 32 / 9 UK">
+
+      <div class="photo-row">
+        <div class="photo-preview" id="photo-preview"></div>
+        <div class="photo-controls">
+          <label class="filelabel" for="item-photo" id="photo-label">Upload photo</label>
+          <input type="file" id="item-photo" accept="image/*" capture="environment">
+          <div class="color-row">
+            <span>Color</span>
+            <input type="color" id="item-color" value="#5b6b8c">
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="add-btn">Add to closet</button>
+        <button class="btn btn-ghost" id="cancel-btn" style="display:none;">Cancel</button>
+      </div>
+    </div>
+
+    <div class="closet-list" id="closet-list"></div>
+
+    <div class="card" style="margin-top:16px;">
+      <label class="field-label">CSV database</label>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="export-btn">Export .csv</button>
+        <button class="btn btn-ghost" id="import-btn">Import .csv</button>
+      </div>
+      <input type="file" id="import-file" accept=".csv,text/csv" style="display:none;">
+    </div>
+  </section>
+
+  <!-- TODAY VIEW -->
+  <section class="view" id="view-today">
+    <h2 class="section-title">Today's brief</h2>
+    <p class="hint">Set the context, then decide with AI or with the app's own styling rules.</p>
+
+    <div class="card">
+      <label class="field-label">Weather</label>
+      <div class="chipset" id="weather-chips"></div>
+      <label class="field-label">Temperature (optional, °C)</label>
+      <input type="text" inputmode="numeric" id="temp-input" placeholder="—">
+
+      <label class="field-label">Mood</label>
+      <div class="chipset" id="mood-chips"></div>
+
+      <label class="field-label">Occasion (optional)</label>
+      <textarea id="occasion-input" placeholder="e.g. client meeting, casual weekend…" rows="1"></textarea>
+
+      <div class="toggle-row">
+        <div class="label-block">
+          <span class="t-title">Use AI</span>
+          <span class="t-sub" id="ai-sub">Calls Claude for the pick</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="ai-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button class="btn btn-light" id="suggest-btn" disabled>Get my look</button>
+      <div class="status-line" id="cta-note">Add at least 2 pieces, a weather chip, and a mood to continue.</div>
+    </div>
+
+    <div id="result-wrap"></div>
+  </section>
+
+  <!-- SETTINGS VIEW -->
+  <section class="view" id="view-settings">
+    <h2 class="section-title">Settings</h2>
+
+    <div class="settings-note">
+      Your Anthropic API key is stored only in this browser's local storage and is sent only to
+      api.anthropic.com when you request an AI outfit. Because this is a browser app, anyone with
+      access to this device/browser could read the key from storage — fine for personal use, not
+      something to share or publish with your key saved in it.
+    </div>
+
+    <div class="card">
+      <label class="field-label">Anthropic API key</label>
+      <input type="text" id="api-key-input" placeholder="sk-ant-...">
+      <button class="btn btn-primary" id="save-key-btn">Save key</button>
+      <div class="status-line" id="key-status"></div>
+    </div>
+
+    <div class="card">
+      <label class="field-label">Data</label>
+      <p class="hint" style="margin-bottom:10px;">Your closet is stored as CSV text in this browser. Clearing it removes every item and photo from this device.</p>
+      <button class="btn btn-ghost" id="clear-data-btn">Clear all closet data</button>
+    </div>
+  </section>
+
+  <nav class="tabbar">
+    <button class="tab-btn active" data-view="closet"><span>Closet</span><span class="dot-ind"></span></button>
+    <button class="tab-btn" data-view="today"><span>Today</span><span class="dot-ind"></span></button>
+    <button class="tab-btn" data-view="settings"><span>Settings</span><span class="dot-ind"></span></button>
+  </nav>
+
+</div>
+
+<script>
+// CSV Utils
+const CSV_COLUMNS = ['id', 'name', 'description', 'category', 'size', 'hex', 'photo'];
+function csvEscapeField(v) { const s = v === undefined || v === null ? '' : String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function itemsToCsv(items) { return [CSV_COLUMNS.join(','), ...items.map(i => CSV_COLUMNS.map(c => csvEscapeField(i[c])).join(','))].join('\r\n'); }
+function parseCsvRows(text) {
+  const rows = []; let row = [], field = '', inQ = false, i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"') { if (text[i+1] === '"') { field += '"'; i += 2; continue; } inQ = false; i++; continue; }
+      field += ch; i++; continue;
+    }
+    if (ch === '"') { inQ = true; i++; continue; }
+    if (ch === ',') { row.push(field); field = ''; i++; continue; }
+    if (ch === '\r') { i++; continue; }
+    if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; i++; continue; }
+    field += ch; i++;
+  }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter(r => !(r.length === 1 && r[0] === ''));
+}
+function csvToItems(text) {
+  if (!text || !text.trim()) return [];
+  const rows = parseCsvRows(text.trim()); if (!rows.length) return [];
+  const header = rows[0];
+  return rows.slice(1).map(r => {
+    const obj = {}; header.forEach((col, idx) => obj[col] = r[idx] !== undefined ? r[idx] : '');
+    obj.id = Number(obj.id) || 0;
+    if (obj.category && !obj.cat) obj.cat = obj.category;
+    if (obj.cat && !obj.category) obj.category = obj.cat;
+    return obj;
+  });
+}
+function downloadCsv(csvText, filename) {
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// HSL & Outfit Engine
+function hexToHsl(hex) {
+  let r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0; const l = (max + min) / 2, d = max - min;
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    if (max === r) h = 60 * (((g - b) / d) % 6);
+    else if (max === g) h = 60 * ((b - r) / d + 2);
+    else h = 60 * ((r - g) / d + 4);
+  }
+  if (h < 0) h += 360; return { h, s, l };
+}
+function circularHueDiff(h1, h2) { const d = Math.abs(h1 - h2) % 360; return d > 180 ? 360 - d : d; }
+function pairHarmony(hslA, hslB) {
+  if (hslA.s < 0.15 || hslB.s < 0.15) return 0.85;
+  const diff = circularHueDiff(hslA.h, hslB.h);
+  if (diff <= 20) return 1.0; if (diff >= 150) return 0.9; if (diff >= 100) return 0.55; return 0.3;
+}
+function groupHarmony(hslList) {
+  if (hslList.length < 2) return 1;
+  let total = 0, n = 0;
+  for (let i = 0; i < hslList.length; i++) {
+    for (let j = i + 1; j < hslList.length; j++) { total += pairHarmony(hslList[i], hslList[j]); n++; }
+  }
+  return n ? total / n : 1;
+}
+const MOOD_TARGETS = {
+  Confident: { satMin: 0.5, lRange: [0.25, 0.55] }, Relaxed: { satMax: 0.45, lRange: [0.35, 0.75] },
+  Energetic: { satMin: 0.6, lRange: [0.4, 0.75] }, Cozy: { warmHue: true, lRange: [0.2, 0.55] },
+  Professional: { satMax: 0.35, lRange: [0.15, 0.45] }, Romantic: { pinkHue: true, lRange: [0.35, 0.75] },
+  Adventurous: { satMin: 0.55, lRange: [0.3, 0.7] }, 'Low-key': { satMax: 0.35, lRange: [0.3, 0.65] }
+};
+function moodFitScore(hsl, mood) {
+  const t = MOOD_TARGETS[mood]; if (!t) return 0.5;
+  let score = 0.5;
+  if (t.satMin !== undefined) score += hsl.s >= t.satMin ? 0.25 : -0.15;
+  if (t.satMax !== undefined) score += hsl.s <= t.satMax ? 0.25 : -0.15;
+  if (t.lRange) score += (hsl.l >= t.lRange[0] && hsl.l <= t.lRange[1]) ? 0.15 : -0.05;
+  if (t.warmHue) score += (hsl.h <= 60 || hsl.h >= 300) ? 0.15 : -0.05;
+  if (t.pinkHue) score += (hsl.h >= 300 || hsl.h <= 20) ? 0.15 : -0.05;
+  return Math.max(0, Math.min(1, score));
+}
+const COLD_WEATHER = ['Cold', 'Snowy', 'Windy'];
+const HOT_WEATHER = ['Hot', 'Sunny', 'Humid'];
+function bestOfCategory(items, category, mood, baseHslList) {
+  const pool = items.filter((i) => (i.category || i.cat) === category);
+  if (pool.length === 0) return null;
+  let best = null, bestScore = -1;
+  pool.forEach((item) => {
+    const hsl = hexToHsl(item.hex || '#888888');
+    const mScore = moodFitScore(hsl, mood);
+    const cScore = baseHslList.length ? groupHarmony([...baseHslList, hsl]) : 1;
+    const score = mScore * 0.4 + cScore * 0.6;
+    if (score > bestScore) { bestScore = score; best = item; }
+  });
+  return best;
+}
+function buildRuleBasedOutfit(wardrobe, ctx) {
+  const { weather, mood } = ctx;
+  const picks = [], hslList = [];
+  const dressOption = bestOfCategory(wardrobe, 'Dress', mood, []);
+  const topOption = bestOfCategory(wardrobe, 'Top', mood, []);
+  const bottomOption = topOption
+    ? bestOfCategory(wardrobe, 'Bottom', mood, [hexToHsl(topOption.hex || '#888')])
+    : bestOfCategory(wardrobe, 'Bottom', mood, []);
+
+  let base = [];
+  if (dressOption && (!topOption || !bottomOption)) base = [dressOption];
+  else if (dressOption && topOption && bottomOption) {
+    const dressScore = moodFitScore(hexToHsl(dressOption.hex || '#888'), mood);
+    const comboHsl = [hexToHsl(topOption.hex || '#888'), hexToHsl(bottomOption.hex || '#888')];
+    const comboScore = (moodFitScore(comboHsl[0], mood) + moodFitScore(comboHsl[1], mood)) / 2 * 0.5 + groupHarmony(comboHsl) * 0.5;
+    base = dressScore >= comboScore ? [dressOption] : [topOption, bottomOption];
+  } else if (topOption && bottomOption) base = [topOption, bottomOption];
+  else if (dressOption) base = [dressOption];
+  else if (topOption) base = [topOption];
+  else if (bottomOption) base = [bottomOption];
+
+  base.forEach((item) => { picks.push(item); hslList.push(hexToHsl(item.hex || '#888')); });
+  const needsOuterwear = COLD_WEATHER.includes(weather), avoidOuterwear = HOT_WEATHER.includes(weather);
+  if (!avoidOuterwear) {
+    const outer = bestOfCategory(wardrobe, 'Outerwear', mood, hslList);
+    if (outer && (needsOuterwear || groupHarmony([...hslList, hexToHsl(outer.hex || '#888')]) > 0.75)) {
+      picks.push(outer); hslList.push(hexToHsl(outer.hex || '#888'));
+    }
+  }
+  const shoes = bestOfCategory(wardrobe, 'Shoes', mood, hslList);
+  if (shoes) { picks.push(shoes); hslList.push(hexToHsl(shoes.hex || '#888')); }
+  const beforeHarmony = groupHarmony(hslList);
+  const accessory = bestOfCategory(wardrobe, 'Accessory', mood, hslList);
+  if (accessory) {
+    const afterHarmony = groupHarmony([...hslList, hexToHsl(accessory.hex || '#888')]);
+    if (afterHarmony >= beforeHarmony - 0.05) { picks.push(accessory); hslList.push(hexToHsl(accessory.hex || '#888')); }
+  }
+  const harmony = groupHarmony(hslList);
+  const avgMood = hslList.reduce((sum, h) => sum + moodFitScore(h, mood), 0) / (hslList.length || 1);
+  const colorStory = harmony > 0.8 ? 'These pieces share closely related or neutral tones.' : harmony > 0.55 ? 'The colors sit in a complementary relationship.' : 'The palette leans eclectic.';
+  const weatherFit = needsOuterwear ? (picks.some(p => (p.category || p.cat) === 'Outerwear') ? 'Outerwear included for ' + weather.toLowerCase() : 'No outerwear available for ' + weather.toLowerCase()) : avoidOuterwear ? 'Layer-free for ' + weather.toLowerCase() : 'Balanced for ' + weather.toLowerCase();
+  const moodFit = avgMood > 0.65 ? `Tones lean into a ${mood.toLowerCase()} feel.` : `A reasonable match for a ${mood.toLowerCase()} mood.`;
+  const confidence = (harmony > 0.75 && avgMood > 0.6) ? 'high' : (harmony > 0.5 ? 'medium' : 'low');
+  return { pick_ids: picks.map((p) => String(p.id)), color_story: colorStory, weather_fit: weatherFit, mood_fit: moodFit, confidence };
+}
+async function requestAiOutfit(wardrobe, ctx, apiKey) {
+  const { weather, temp, mood, occasion } = ctx;
+  const wardrobeForPrompt = wardrobe.map((i) => ({ id: String(i.id), name: i.name, description: i.description || undefined, category: i.category || i.cat, size: i.size || undefined, hex: i.hex }));
+  const prompt = `You are a personal stylist. Wardrobe: ${JSON.stringify(wardrobeForPrompt)}. Weather: ${weather}${temp ? ', ' + temp + '°C' : ''}, Mood: ${mood}, Occasion: ${occasion || 'any'}. Return ONLY valid JSON: {"pick_ids": ["id1"], "color_story": "...", "weather_fit": "...", "mood_fit": "...", "confidence": "high|medium|low"}`;
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-3-5-sonnet-latest', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!res.ok) throw new Error('API error (' + res.status + ')');
+  const data = await res.json();
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+</script>
+
+<script>
+// Main App Controller
+(function () {
+  const WEATHER_OPTIONS = ['Sunny', 'Cloudy', 'Rainy', 'Hot', 'Cold', 'Windy', 'Humid', 'Snowy'];
+  const MOOD_OPTIONS = ['Confident', 'Relaxed', 'Energetic', 'Cozy', 'Professional', 'Romantic', 'Adventurous', 'Low-key'];
+  const CSV_KEY = 'atelier_csv', API_KEY_STORAGE = 'atelier_api_key';
+  let wardrobe = [], nextId = 1, selectedWeather = null, selectedMood = null, pendingPhotoDataUrl = null, editingId = null;
+  const $ = (sel) => document.querySelector(sel);
+
+  $('#today-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  function buildChips(container, options, type) {
+    container.innerHTML = options.map((o) => `<button class="chip" data-type="${type}" data-value="${o}">${o}</button>`).join('');
+  }
+  buildChips($('#weather-chips'), WEATHER_OPTIONS, 'weather');
+  buildChips($('#mood-chips'), MOOD_OPTIONS, 'mood');
+  function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
+      btn.classList.add('active');
+      $('#view-' + btn.dataset.view).classList.add('active');
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip'); if (!chip) return;
+    const type = chip.dataset.type, value = chip.dataset.value;
+    if (type === 'weather') {
+      selectedWeather = selectedWeather === value ? null : value;
+      document.querySelectorAll('.chip[data-type="weather"]').forEach((c) => c.classList.toggle('sel', c.dataset.value === selectedWeather));
+    } else if (type === 'mood') {
+      selectedMood = selectedMood === value ? null : value;
+      document.querySelectorAll('.chip[data-type="mood"]').forEach((c) => { c.classList.add('mood'); c.classList.toggle('sel', c.dataset.value === selectedMood); });
+    }
+    updateCta();
+  });
+
+  $('#item-photo').addEventListener('change', (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 180, scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+        pendingPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+        $('#photo-preview').style.backgroundImage = `url(${pendingPhotoDataUrl})`;
+        $('#photo-label').textContent = 'Change photo';
+        try {
+          const data = ctx.getImageData(0, 0, w, h).data;
+          let r = 0, g = 0, b = 0, n = 0;
+          for (let i = 0; i < data.length; i += 16) { r += data[i]; g += data[i + 1]; b += data[i + 2]; n++; }
+          if (n > 0) {
+            r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+            $('#item-color').value = '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+          }
+        } catch (err) {}
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  function resetForm() {
+    editingId = null; $('#item-name').value = ''; $('#item-desc').value = ''; $('#item-size').value = '';
+    $('#item-photo').value = ''; $('#item-color').value = '#5b6b8c'; pendingPhotoDataUrl = null;
+    $('#photo-preview').style.backgroundImage = ''; $('#photo-label').textContent = 'Upload photo';
+    $('#form-card-title').textContent = 'Add new piece'; $('#add-btn').textContent = 'Add to closet';
+    $('#cancel-btn').style.display = 'none';
+  }
+
+  function renderCloset() {
+    const el = $('#closet-list');
+    if (wardrobe.length === 0) {
+      el.innerHTML = '<div class="empty-note">Your closet is empty — add your first piece above.</div>';
+    } else {
+      el.innerHTML = wardrobe.map((item) => `
+        <div class="closet-item ${editingId === item.id ? 'editing' : ''}">
+          <div class="thumb" style="background-image:url(${item.photo || ''}); background-color:${item.photo ? 'transparent' : item.hex};"></div>
+          <div class="info">
+            <div class="name">${escapeHtml(item.name)}</div>
+            ${item.description ? `<div class="desc">${escapeHtml(item.description)}</div>` : ''}
+            <div class="meta">${escapeHtml(item.category || item.cat || '')}${item.size ? ' · ' + escapeHtml(item.size) : ''}</div>
+          </div>
+          <span class="dot" style="background:${item.hex}"></span>
+          <div class="item-actions">
+            <span class="edit" data-edit="${item.id}" title="Edit item">✏️</span>
+            <span class="rm" data-rm="${item.id}" title="Delete item">×</span>
+          </div>
+        </div>
+      `).join('');
+    }
+    updateCta();
+  }
+
+  document.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      const id = Number(editBtn.dataset.edit); const item = wardrobe.find((i) => i.id === id); if (!item) return;
+      editingId = item.id; $('#item-name').value = item.name || ''; $('#item-desc').value = item.description || '';
+      $('#item-cat').value = item.category || item.cat || 'Top'; $('#item-size').value = item.size || ''; $('#item-color').value = item.hex || '#5b6b8c';
+      pendingPhotoDataUrl = item.photo || null; $('#photo-preview').style.backgroundImage = item.photo ? `url(${item.photo})` : '';
+      $('#photo-label').textContent = item.photo ? 'Change photo' : 'Upload photo'; $('#form-card-title').textContent = 'Editing piece';
+      $('#add-btn').textContent = 'Save changes'; $('#cancel-btn').style.display = 'block';
+      renderCloset(); $('#item-name').focus(); return;
+    }
+    const rm = e.target.closest('[data-rm]');
+    if (rm) {
+      const id = Number(rm.dataset.rm); wardrobe = wardrobe.filter((i) => i.id !== id);
+      if (editingId === id) resetForm(); renderCloset(); persistWardrobe(); return;
+    }
+  });
+
+  $('#cancel-btn').addEventListener('click', resetForm);
+  $('#add-btn').addEventListener('click', () => {
+    const nameEl = $('#item-name'), name = nameEl.value.trim(); if (!name) { nameEl.focus(); return; }
+    const catValue = $('#item-cat').value, descValue = $('#item-desc').value.trim(), sizeValue = $('#item-size').value.trim(), colorValue = $('#item-color').value;
+    if (editingId) {
+      const item = wardrobe.find((i) => i.id === editingId);
+      if (item) { item.name = name; item.description = descValue; item.category = catValue; item.cat = catValue; item.size = sizeValue; item.hex = colorValue; if (pendingPhotoDataUrl !== null) item.photo = pendingPhotoDataUrl; }
+    } else {
+      wardrobe.push({ id: nextId++, name, description: descValue, category: catValue, cat: catValue, size: sizeValue, hex: colorValue, photo: pendingPhotoDataUrl || '' });
+    }
+    resetForm(); renderCloset(); persistWardrobe();
+  });
+
+  function updateCta() {
+    const btn = $('#suggest-btn'), note = $('#cta-note'), ready = wardrobe.length >= 2 && selectedWeather && selectedMood;
+    btn.disabled = !ready; note.textContent = ready ? 'Ready when you are.' : 'Add at least 2 pieces, a weather chip, and a mood to continue.';
+  }
+
+  function persistWardrobe() { try { localStorage.setItem(CSV_KEY, itemsToCsv(wardrobe)); } catch (err) {} }
+  function loadWardrobe() {
+    try { const csv = localStorage.getItem(CSV_KEY); if (csv) { wardrobe = csvToItems(csv); nextId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0) + 1; } } catch (err) { wardrobe = []; }
+    renderCloset();
+  }
+
+  $('#export-btn').addEventListener('click', () => downloadCsv(itemsToCsv(wardrobe), 'atelier-closet.csv'));
+  $('#import-btn').addEventListener('click', () => $('#import-file').click());
+  $('#import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const imported = csvToItems(ev.target.result); if (!imported.length) { alert('No rows found in CSV.'); return; }
+      if (confirm(`Import ${imported.length} item(s)? OK replaces closet, Cancel adds.`)) wardrobe = imported;
+      else { let maxId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0); imported.forEach((i) => { maxId++; i.id = maxId; wardrobe.push(i); }); }
+      nextId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0) + 1; renderCloset(); persistWardrobe(); e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  function loadApiKey() { try { return localStorage.getItem(API_KEY_STORAGE) || ''; } catch (err) { return ''; } }
+  $('#api-key-input').value = loadApiKey();
+  $('#save-key-btn').addEventListener('click', () => {
+    try { localStorage.setItem(API_KEY_STORAGE, $('#api-key-input').value.trim()); $('#key-status').textContent = 'Saved.'; setTimeout(() => { $('#key-status').textContent = ''; }, 2000); } catch (err) { $('#key-status').textContent = 'Could not save key.'; }
+  });
+  $('#clear-data-btn').addEventListener('click', () => {
+    if (!confirm('Remove every item from this device?')) return; wardrobe = []; nextId = 1; persistWardrobe(); renderCloset();
+  });
+
+  $('#ai-toggle').addEventListener('change', (e) => { $('#ai-sub').textContent = e.target.checked ? 'Calls Claude for the pick' : "Uses the app's own styling rules"; });
+  $('#suggest-btn').addEventListener('click', getOutfit);
+
+  async function getOutfit() {
+    const btn = $('#suggest-btn'), resultWrap = $('#result-wrap'), useAi = $('#ai-toggle').checked;
+    const ctx = { weather: selectedWeather, temp: $('#temp-input').value.trim(), mood: selectedMood, occasion: $('#occasion-input').value.trim() };
+    if (useAi && !loadApiKey()) { resultWrap.innerHTML = `<div class="status-line err">No API key saved yet in Settings.</div>`; return; }
+    btn.disabled = true; resultWrap.innerHTML = `<div class="status-line"><span class="spinner"></span>${useAi ? 'Consulting AI…' : 'Applying styling rules…'}</div>`;
+    try {
+      const parsed = useAi ? await requestAiOutfit(wardrobe, ctx, loadApiKey()) : buildRuleBasedOutfit(wardrobe, ctx);
+      renderResult(parsed, useAi);
+    } catch (err) {
+      resultWrap.innerHTML = `<div class="status-line err">${escapeHtml(err.message || "Couldn't get suggestion.")}</div>`;
+    } finally { btn.disabled = false; }
+  }
+
+  function hexToHue(hex) {
+    let r = parseInt(hex.slice(1, 3), 16) / 255, g = parseInt(hex.slice(3, 5), 16) / 255, b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b); let h = 0;
+    if (max !== min) { if (max === r) h = 60 * (((g - b) / (max - min)) % 6); else if (max === g) h = 60 * (((b - r) / (max - min)) + 2); else h = 60 * (((r - g) / (max - min)) + 4); }
+    if (h < 0) h += 360; return h;
+  }
+  function hueToXY(hue, r, cx, cy) { const rad = (hue - 90) * Math.PI / 180; return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }; }
+
+  function renderResult(parsed, useAi) {
+    const resultWrap = $('#result-wrap');
+    const picks = (parsed.pick_ids || []).map((id) => wardrobe.find((i) => String(i.id) === String(id))).filter(Boolean);
+    if (!picks.length) { resultWrap.innerHTML = `<div class="status-line err">Couldn't match pieces.</div>`; return; }
+    const cx = 60, cy = 60, r = 46;
+    const dots = picks.map((p) => { const { x, y } = hueToXY(hexToHue(p.hex), r, cx, cy); return `<div class="dot" style="left:${x}px; top:${y}px; background:${p.hex}; position:absolute; width:16px; height:16px; border-radius:50%; border:2px solid var(--paper); box-shadow:0 0 0 1px rgba(0,0,0,0.25); transform:translate(-50%,-50%);"></div>`; }).join('');
+    const conf = (parsed.confidence || 'medium').toLowerCase();
+    resultWrap.innerHTML = `
+      <div class="result-card">
+        <span class="engine-tag">${useAi ? 'AI stylist' : "App's own rules"}</span>
+        <div class="eyebrow">${selectedWeather} · ${selectedMood}</div>
+        <h3>Today's look</h3>
+        <ul class="pick-list">
+          ${picks.map((p) => `<li><div class="thumb" style="background-image:url(${p.photo || ''}); background-color:${p.photo ? 'transparent' : p.hex};"></div><span class="swatch" style="background:${p.hex}"></span><span>${escapeHtml(p.name)}</span><span class="cat">${escapeHtml(p.category || p.cat || '')}</span>${p.size ? `<span class="size">${escapeHtml(p.size)}</span>` : ''}</li>`).join('')}
+        </ul>
+        <div class="reasoning">
+          <p><span class="label">Color story</span>${escapeHtml(parsed.color_story || '')}</p>
+          <p><span class="label">Weather fit</span>${escapeHtml(parsed.weather_fit || '')}</p>
+          <p><span class="label">Mood fit</span>${escapeHtml(parsed.mood_fit || '')}</p>
+        </div>
+        <span class="confidence">Confidence: ${conf}</span>
+        <div style="position:relative;width:120px;height:120px;border-radius:50%;background:conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);opacity:0.9;margin:16px auto 0;">${dots}</div>
+      </div>
+    `;
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+  loadWardrobe(); updateCta();
+})();
+</script>
+</body>
+</html>

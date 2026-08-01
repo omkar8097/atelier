@@ -7,6 +7,9 @@
 <title>Atelier</title>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -23,7 +26,8 @@
     <p class="hint">Photo, description, category, and size for each piece. Everything lives in a local CSV — export it any time.</p>
 
     <div class="card">
-      <label class="field-label">Name</label>
+      <label class="field-label" id="form-card-title">Add new piece</label>
+      <label class="field-label" style="font-size:9px;margin-top:-2px;margin-bottom:8px;">Name</label>
       <input type="text" id="item-name" placeholder="e.g. Navy chinos" maxlength="40">
 
       <label class="field-label">Description</label>
@@ -54,7 +58,10 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" id="add-btn">Add to closet</button>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="add-btn">Add to closet</button>
+        <button class="btn btn-ghost" id="cancel-btn" style="display:none;">Cancel</button>
+      </div>
     </div>
 
     <div class="closet-list" id="closet-list"></div>
