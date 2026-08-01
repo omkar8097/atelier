@@ -5,12 +5,34 @@
   const API_KEY_STORAGE = 'poshak_api_key';
   const THEME_KEY = 'poshak_theme';
 
+  const CATEGORIES = [
+    { name: 'Casual Shirt', role: 'Top', color: 'var(--accent-blue)' },
+    { name: 'Formal Shirt', role: 'Top', color: '#4A7BB0' },
+    { name: 'T-Shirt / Polo', role: 'Top', color: '#3B93C4' },
+    { name: 'Kurta', role: 'Top', color: '#8A5BA7' },
+    { name: 'Formal Trousers', role: 'Bottom', color: 'var(--accent-sage)' },
+    { name: 'Chinos', role: 'Bottom', color: '#688B58' },
+    { name: 'Jeans', role: 'Bottom', color: '#4F7C85' },
+    { name: 'Shorts', role: 'Bottom', color: '#8F9B58' },
+    { name: 'Pyjamas / Trackpants', role: 'Bottom', color: '#7A8B7B' },
+    { name: 'Dress / One-Piece', role: 'Dress', color: 'var(--accent-rose)' },
+    { name: 'Saree / Ethnic Set', role: 'Ethnic Wear', color: '#9C5B8B' },
+    { name: 'Jacket / Blazer / Coat', role: 'Outerwear', color: 'var(--accent-amber)' },
+    { name: 'Nehru Jacket / Dupatta', role: 'Outerwear', color: '#C47F3B' },
+    { name: 'Formal Shoes / Loafers', role: 'Footwear', color: '#8C6E4F' },
+    { name: 'Sneakers / Casual Shoes', role: 'Footwear', color: '#9E7856' },
+    { name: 'Juttis / Kolhapuris / Sandals', role: 'Footwear', color: '#A06E3B' },
+    { name: 'Watch / Belt / Sunglasses', role: 'Accessory', color: 'var(--accent-ochre)' },
+    { name: 'Jewelry / Bags', role: 'Accessory', color: '#D4A03A' }
+  ];
+
   const CATEGORY_COLORS = {
     Top: 'var(--accent-blue)',
     Bottom: 'var(--accent-sage)',
     Dress: 'var(--accent-rose)',
+    'Ethnic Wear': '#9C5B8B',
     Outerwear: 'var(--accent-amber)',
-    Shoes: '#8C6E4F',
+    Footwear: '#8C6E4F',
     Accessory: 'var(--accent-ochre)'
   };
 
@@ -19,6 +41,13 @@
     medium: 'var(--accent-amber)',
     low: 'var(--danger)'
   };
+
+  function getItemColor(catName) {
+    const found = CATEGORIES.find((c) => c.name === catName);
+    if (found) return found.color;
+    if (CATEGORY_COLORS[catName]) return CATEGORY_COLORS[catName];
+    return 'var(--accent-sage)';
+  }
 
   let wardrobe = [];
   let nextId = 1;
@@ -84,9 +113,8 @@
   buildChips($('#mood-chips'), MOOD_OPTIONS, 'mood');
 
   function buildCategoryChips() {
-    const cats = Object.keys(CATEGORY_COLORS);
-    $('#item-cat-chips').innerHTML = cats.map((c) =>
-      `<button type="button" class="chip cat-chip ${c === 'Top' ? 'sel' : ''}" data-cat="${c}" style="--chip-color:${CATEGORY_COLORS[c]}">${c}</button>`
+    $('#item-cat-chips').innerHTML = CATEGORIES.map((c) =>
+      `<button type="button" class="chip cat-chip ${c.name === 'Casual Shirt' ? 'sel' : ''}" data-cat="${c.name}" style="--chip-color:${c.color}">${c.name}</button>`
     ).join('');
   }
   buildCategoryChips();
@@ -111,7 +139,10 @@
       document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
       document.querySelectorAll('.view').forEach((v) => v.classList.remove('active'));
       btn.classList.add('active');
-      $('#view-' + btn.dataset.view).classList.add('active');
+      const viewName = btn.dataset.view;
+      $('#view-' + viewName).classList.add('active');
+      const fab = $('#add-fab');
+      if (fab) fab.style.display = viewName === 'closet' ? 'flex' : 'none';
     });
   });
 
@@ -181,10 +212,11 @@
     resetForm();
   }
 
-  $('#add-fab').addEventListener('click', () => {
-    resetForm();
-    openSheet();
-  });
+  const fabBtn = $('#add-fab');
+  if (fabBtn) fabBtn.addEventListener('click', () => { resetForm(); openSheet(); });
+
+  const headerAddBtn = $('#header-add-btn');
+  if (headerAddBtn) headerAddBtn.addEventListener('click', () => { resetForm(); openSheet(); });
 
   $('#sheet-backdrop').addEventListener('click', closeSheet);
   $('#cancel-btn').addEventListener('click', closeSheet);
@@ -194,8 +226,8 @@
     editingId = null;
     $('#item-name').value = '';
     $('#item-desc').value = '';
-    $('#item-cat').value = 'Top';
-    document.querySelectorAll('.cat-chip').forEach((c) => c.classList.toggle('sel', c.dataset.cat === 'Top'));
+    $('#item-cat').value = 'Casual Shirt';
+    document.querySelectorAll('.cat-chip').forEach((c) => c.classList.toggle('sel', c.dataset.cat === 'Casual Shirt'));
     $('#item-pattern').value = 'Solid';
     $('#item-size').value = '';
     $('#item-photo').value = '';
@@ -211,11 +243,22 @@
   function renderCloset() {
     const el = $('#closet-list');
     if (wardrobe.length === 0) {
-      el.innerHTML = '<div class="empty-note">Your closet is empty — tap + to add your first piece.</div>';
+      el.innerHTML = `
+        <div class="empty-note">
+          Your closet is empty.
+          <div style="margin-top:10px;">
+            <button class="btn btn-primary" id="empty-add-btn" style="width:auto;padding:8px 16px;font-size:11.5px;display:inline-block;">+ Add piece</button>
+          </div>
+        </div>
+      `;
+      const emptyAdd = $('#empty-add-btn');
+      if (emptyAdd) {
+        emptyAdd.addEventListener('click', () => { resetForm(); openSheet(); });
+      }
     } else {
       el.innerHTML = wardrobe.map((item) => {
-        const cat = item.category || item.cat || 'Top';
-        const catColor = CATEGORY_COLORS[cat] || 'var(--accent-sage)';
+        const cat = item.category || item.cat || 'Casual Shirt';
+        const catColor = getItemColor(cat);
         return `
           <div class="closet-item ${editingId === item.id ? 'editing' : ''}" style="--cat-color:${catColor}">
             <div class="thumb" data-full="${item.photo || ''}" style="background-image:url(${item.photo || ''}); background-color:${item.photo ? 'transparent' : item.hex};"></div>
@@ -251,7 +294,7 @@
       editingId = item.id;
       $('#item-name').value = item.name || '';
       $('#item-desc').value = item.description || '';
-      const cat = item.category || item.cat || 'Top';
+      const cat = item.category || item.cat || 'Casual Shirt';
       $('#item-cat').value = cat;
       document.querySelectorAll('.cat-chip').forEach((c) => c.classList.toggle('sel', c.dataset.cat === cat));
       $('#item-pattern').value = item.pattern || 'Solid';
@@ -509,32 +552,69 @@
     const conf = (parsed.confidence || 'medium').toLowerCase();
     const confColor = CONFIDENCE_COLOR[conf] || 'var(--accent-amber)';
 
+    const overallScore = parsed.overall_score || (conf === 'high' ? 92 : (conf === 'medium' ? 76 : 58));
+    const harmonyScore = parsed.harmony_score || 88;
+    const moodScore = parsed.mood_score || 82;
+    const weatherScore = parsed.weather_score || 90;
+    const justifications = parsed.item_justifications || {};
+
     resultWrap.innerHTML = `
       <div class="result-card">
         <span class="engine-tag">${useAi ? 'AI stylist' : "App's own rules"}</span>
         <div class="eyebrow">${selectedWeather} · ${selectedMood}</div>
         <h3>Today's look</h3>
+        <span class="persona-tag">${escapeHtml(parsed.persona || 'Curated Style Ensemble')}</span>
+
+        <!-- Scorecard Breakdown -->
+        <div class="scorecard">
+          <div class="scorecard-header">
+            <span class="overall">Style Confidence</span>
+            <span class="percentage" style="color:${confColor}">${overallScore}%</span>
+          </div>
+          <div class="score-metrics">
+            <div class="score-row">
+              <span class="label-text">Color Harmony</span>
+              <div class="score-bar-bg"><div class="score-bar-fill" style="width:${harmonyScore}%;background:var(--accent-blue);"></div></div>
+              <span class="val">${harmonyScore}%</span>
+            </div>
+            <div class="score-row">
+              <span class="label-text">Mood Fit</span>
+              <div class="score-bar-bg"><div class="score-bar-fill" style="width:${moodScore}%;background:var(--accent-plum);"></div></div>
+              <span class="val">${moodScore}%</span>
+            </div>
+            <div class="score-row">
+              <span class="label-text">Weather Fit</span>
+              <div class="score-bar-bg"><div class="score-bar-fill" style="width:${weatherScore}%;background:var(--accent-sage);"></div></div>
+              <span class="val">${weatherScore}%</span>
+            </div>
+          </div>
+        </div>
+
         <ul class="pick-list">
           ${picks.map((p) => {
-            const cat = p.category || p.cat || 'Top';
-            const catColor = CATEGORY_COLORS[cat] || 'inherit';
+            const cat = p.category || p.cat || 'Casual Shirt';
+            const catColor = getItemColor(cat);
+            const justification = justifications[String(p.id)] || `Selected ${cat} "${p.name}" to balance visual harmony and formality.`;
             return `
               <li>
-                <div class="thumb" data-full="${p.photo || ''}" style="background-image:url(${p.photo || ''}); background-color:${p.photo ? 'transparent' : p.hex};"></div>
-                <span class="swatch" style="background:${p.hex}"></span>
-                <span>${escapeHtml(p.name)}</span>
-                <span class="cat" style="color:${catColor}">${escapeHtml(cat)}${p.pattern && p.pattern !== 'Solid' ? ' (' + escapeHtml(p.pattern) + ')' : ''}</span>
-                ${p.size ? `<span class="size">${escapeHtml(p.size)}</span>` : ''}
+                <div class="pick-header">
+                  <div class="thumb" data-full="${p.photo || ''}" style="background-image:url(${p.photo || ''}); background-color:${p.photo ? 'transparent' : p.hex};"></div>
+                  <span class="swatch" style="background:${p.hex}"></span>
+                  <span>${escapeHtml(p.name)}</span>
+                  <span class="cat" style="color:${catColor}">${escapeHtml(cat)}${p.pattern && p.pattern !== 'Solid' ? ' (' + escapeHtml(p.pattern) + ')' : ''}</span>
+                  ${p.size ? `<span class="size">${escapeHtml(p.size)}</span>` : ''}
+                </div>
+                <div class="item-rationale">${escapeHtml(justification)}</div>
               </li>
             `;
           }).join('')}
         </ul>
         <div class="reasoning">
           <p><span class="label">Color story</span>${escapeHtml(parsed.color_story || '')}</p>
-          <p><span class="label">Weather fit</span>${escapeHtml(parsed.weather_fit || '')}</p>
-          <p><span class="label">Mood fit</span>${escapeHtml(parsed.mood_fit || '')}</p>
+          <p><span class="label">Weather suitability</span>${escapeHtml(parsed.weather_fit || '')}</p>
+          <p><span class="label">Mood & occasion fit</span>${escapeHtml(parsed.mood_fit || '')}</p>
         </div>
-        <span class="confidence" style="background:${confColor};color:#ffffff;">Confidence: ${conf}</span>
+        <span class="confidence" style="background:${confColor};color:#ffffff;">Confidence: ${conf} (${overallScore}%)</span>
         <div style="position:relative;width:120px;height:120px;border-radius:50%;background:conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);opacity:0.9;margin:16px auto 0;">${dots}</div>
       </div>
     `;

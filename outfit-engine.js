@@ -29,11 +29,11 @@ function circularHueDiff(h1, h2) {
 
 // How well two colors work together, 0 (clash) to 1 (great match).
 function pairHarmony(hslA, hslB) {
-  if (hslA.s < 0.15 || hslB.s < 0.15) return 0.85; // a neutral pairs with almost anything
+  if (hslA.s < 0.15 || hslB.s < 0.15) return 0.85; // neutral
   const diff = circularHueDiff(hslA.h, hslB.h);
   if (diff <= 20) return 1.0;       // analogous
   if (diff >= 150) return 0.9;      // complementary
-  if (diff >= 100) return 0.55;     // triadic-ish, can work but less crisp
+  if (diff >= 100) return 0.55;     // triadic-ish
   return 0.3;                       // near-clash
 }
 
@@ -74,35 +74,84 @@ function moodFitScore(hsl, mood) {
   return Math.max(0, Math.min(1, score));
 }
 
-// ---------- weather rules ----------
+// ---------- weather & SOP mappings ----------
 
 const COLD_WEATHER = ['Cold', 'Snowy', 'Windy'];
 const HOT_WEATHER = ['Hot', 'Sunny', 'Humid'];
-
-// ---------- rule-based outfit builder ----------
-
 const BUSY_PATTERNS = ['Striped', 'Plaid', 'Floral'];
-const MAIN_GARMENTS = ['Top', 'Bottom', 'Dress', 'Outerwear'];
+const MAIN_ROLES = ['Top', 'Bottom', 'Dress', 'Ethnic Wear', 'Outerwear'];
+
+const ROLE_MAP = {
+  'Casual Shirt': 'Top',
+  'Formal Shirt': 'Top',
+  'T-Shirt / Polo': 'Top',
+  'Kurta': 'Top',
+  'Formal Trousers': 'Bottom',
+  'Chinos': 'Bottom',
+  'Jeans': 'Bottom',
+  'Shorts': 'Bottom',
+  'Pyjamas / Trackpants': 'Bottom',
+  'Dress / One-Piece': 'Dress',
+  'Saree / Ethnic Set': 'Ethnic Wear',
+  'Jacket / Blazer / Coat': 'Outerwear',
+  'Nehru Jacket / Dupatta': 'Outerwear',
+  'Formal Shoes / Loafers': 'Footwear',
+  'Sneakers / Casual Shoes': 'Footwear',
+  'Juttis / Kolhapuris / Sandals': 'Footwear',
+  'Watch / Belt / Sunglasses': 'Accessory',
+  'Jewelry / Bags': 'Accessory',
+
+  // Legacy mappings
+  'Top': 'Top',
+  'Bottom': 'Bottom',
+  'Dress': 'Dress',
+  'Outerwear': 'Outerwear',
+  'Shoes': 'Footwear',
+  'Footwear': 'Footwear',
+  'Accessory': 'Accessory',
+  'Ethnic Wear': 'Ethnic Wear'
+};
+
+function getSopRole(item) {
+  const cat = item.category || item.cat || 'Top';
+  return ROLE_MAP[cat] || 'Top';
+}
+
+function getItemFormality(item) {
+  const cat = item.category || item.cat || '';
+  const nameDesc = (item.name + ' ' + (item.description || '')).toLowerCase();
+  if (cat.includes('Formal') || nameDesc.includes('formal') || nameDesc.includes('blazer') || nameDesc.includes('suit') || nameDesc.includes('oxford')) return 'formal';
+  if (cat.includes('Ethnic') || cat.includes('Kurta') || cat.includes('Saree') || cat.includes('Juttis') || nameDesc.includes('kurta') || nameDesc.includes('sherwani')) return 'ethnic';
+  if (cat.includes('Shorts') || cat.includes('T-Shirt') || cat.includes('Sneakers') || nameDesc.includes('tee') || nameDesc.includes('casual')) return 'casual';
+  return 'smart-casual';
+}
+
+function getContextFormality(ctx) {
+  const occasion = (ctx.occasion || '').toLowerCase();
+  const mood = (ctx.mood || '').toLowerCase();
+  if (occasion.includes('meeting') || occasion.includes('work') || occasion.includes('formal') || occasion.includes('office') || mood === 'professional') return 'formal';
+  if (occasion.includes('wedding') || occasion.includes('festive') || occasion.includes('party') || occasion.includes('ethnic') || mood === 'romantic' || mood === 'confident') return 'ethnic';
+  if (occasion.includes('weekend') || occasion.includes('casual') || mood === 'relaxed' || mood === 'low-key' || mood === 'cozy') return 'casual';
+  return 'smart-casual';
+}
 
 function isBusyPattern(pattern) {
   return BUSY_PATTERNS.includes(pattern);
 }
 
-// Returns the top N scored candidates for a category, considering color, mood, and pattern SOP limits.
-function shortlistOfCategory(items, category, mood, baseHslList, currentPicks = [], topN = 3) {
-  let pool = items.filter((i) => (i.category || i.cat) === category);
+// Shortlist by role and scoring
+function shortlistOfRole(items, role, mood, baseHslList, currentPicks = [], targetFormality = 'smart-casual', topN = 3) {
+  let pool = items.filter((i) => getSopRole(i) === role);
   if (pool.length === 0) return [];
 
-  // SOP Step 6 Pattern Rule: Max ONE busy pattern among main garments (Top, Bottom, Dress, Outerwear)
-  if (MAIN_GARMENTS.includes(category)) {
+  // Pattern rule: max 1 busy pattern among main garments
+  if (MAIN_ROLES.includes(role)) {
     const hasBusyMain = currentPicks.some(
-      (p) => MAIN_GARMENTS.includes(p.category || p.cat) && isBusyPattern(p.pattern)
+      (p) => MAIN_ROLES.includes(getSopRole(p)) && isBusyPattern(p.pattern)
     );
     if (hasBusyMain) {
-      const nonBusyPool = pool.filter((i) => !isBusyPattern(i.pattern));
-      if (nonBusyPool.length > 0) {
-        pool = nonBusyPool;
-      }
+      const nonBusy = pool.filter((i) => !isBusyPattern(i.pattern));
+      if (nonBusy.length > 0) pool = nonBusy;
     }
   }
 
@@ -110,17 +159,18 @@ function shortlistOfCategory(items, category, mood, baseHslList, currentPicks = 
     const hsl = hexToHsl(item.hex || '#888888');
     const mScore = moodFitScore(hsl, mood);
     const cScore = baseHslList.length ? groupHarmony([...baseHslList, hsl]) : 1;
-    return { item, score: mScore * 0.4 + cScore * 0.6 };
+    const fType = getItemFormality(item);
+    const fScore = fType === targetFormality ? 1.0 : (fType === 'smart-casual' ? 0.8 : 0.6);
+    return { item, score: mScore * 0.35 + cScore * 0.45 + fScore * 0.20 };
   }).sort((a, b) => b.score - a.score);
 
   return scored.slice(0, Math.min(topN, scored.length));
 }
 
-// Weighted-random pick from a shortlist, biased toward higher scores (score^3) and avoiding recent pick IDs.
 function weightedPick(shortlist, excludeIds = []) {
   if (shortlist.length === 0) return null;
   let pool = shortlist.filter((c) => !excludeIds.includes(String(c.item.id)));
-  if (pool.length === 0) pool = shortlist; // fallback if exclusion leaves pool empty
+  if (pool.length === 0) pool = shortlist;
 
   const weights = pool.map((c) => Math.pow(Math.max(c.score, 0.01), 3));
   const total = weights.reduce((a, b) => a + b, 0);
@@ -132,45 +182,61 @@ function weightedPick(shortlist, excludeIds = []) {
   return pool[pool.length - 1].item;
 }
 
-function bestOfCategory(items, category, mood, baseHslList, excludeIds = [], currentPicks = []) {
-  const shortlist = shortlistOfCategory(items, category, mood, baseHslList, currentPicks);
+function bestOfRole(items, role, mood, baseHslList, excludeIds = [], currentPicks = [], targetFormality = 'smart-casual') {
+  const shortlist = shortlistOfRole(items, role, mood, baseHslList, currentPicks, targetFormality);
   return weightedPick(shortlist, excludeIds);
+}
+
+function generateItemJustification(item, ctx, role, harmonyScore, moodScore) {
+  const cat = item.category || item.cat || role;
+  const mood = ctx.mood || 'general';
+  const weather = ctx.weather || 'mild';
+  const formality = getItemFormality(item);
+
+  if (role === 'Top') {
+    return `${cat} "${item.name}" provides a versatile upper-body base. Its color aligns seamlessly with the ${mood.toLowerCase()} mood and keeps overall palette harmony at ${harmonyScore}%.`;
+  }
+  if (role === 'Bottom') {
+    return `${cat} "${item.name}" pairs structure and comfort for ${weather.toLowerCase()} conditions, offering clean visual balance with your top piece.`;
+  }
+  if (role === 'Dress') {
+    return `${cat} "${item.name}" serves as an elegant standalone outfit base, delivering cohesive tone and style for a ${mood.toLowerCase()} feel.`;
+  }
+  if (role === 'Ethnic Wear') {
+    return `Traditional ${cat} "${item.name}" anchors the outfit with cultural flair, offering rich texture and an ideal fit for ${ctx.occasion || 'the occasion'}.`;
+  }
+  if (role === 'Outerwear') {
+    return `${cat} "${item.name}" adds functional warmth and layer depth suited for ${weather.toLowerCase()} weather without overwhelming the base silhouette.`;
+  }
+  if (role === 'Footwear') {
+    return `${cat} "${item.name}" grounds the ensemble with appropriate ${formality} formality, completing the look comfortably from head to toe.`;
+  }
+  return `Accent ${cat} "${item.name}" adds subtle polished contrast, enhancing overall visual appeal.`;
 }
 
 function buildRuleBasedOutfit(wardrobe, ctx, recentPickIds = []) {
   const { weather, mood } = ctx;
+  const targetFormality = getContextFormality(ctx);
   const picks = [];
   const hslList = [];
   const exclude = (recentPickIds || []).map(String);
 
-  const dressOption = bestOfCategory(wardrobe, 'Dress', mood, [], exclude, picks);
-  const topOption = bestOfCategory(wardrobe, 'Top', mood, [], exclude, picks);
+  const ethnicOption = bestOfRole(wardrobe, 'Ethnic Wear', mood, [], exclude, picks, targetFormality);
+  const dressOption = bestOfRole(wardrobe, 'Dress', mood, [], exclude, picks, targetFormality);
+  const topOption = bestOfRole(wardrobe, 'Top', mood, [], exclude, picks, targetFormality);
   const bottomOption = topOption
-    ? bestOfCategory(wardrobe, 'Bottom', mood, [hexToHsl(topOption.hex || '#888')], exclude, topOption ? [topOption] : [])
-    : bestOfCategory(wardrobe, 'Bottom', mood, [], exclude, []);
+    ? bestOfRole(wardrobe, 'Bottom', mood, [hexToHsl(topOption.hex || '#888')], exclude, topOption ? [topOption] : [], targetFormality)
+    : bestOfRole(wardrobe, 'Bottom', mood, [], exclude, [], targetFormality);
 
   let base = [];
-  if (dressOption && (!topOption || !bottomOption)) {
+  if (targetFormality === 'ethnic' && ethnicOption) {
+    base = [ethnicOption];
+  } else if (dressOption && (!topOption || !bottomOption)) {
     base = [dressOption];
-  } else if (dressOption && topOption && bottomOption) {
-    const dressScore = moodFitScore(hexToHsl(dressOption.hex || '#888'), mood);
-    const comboHsl = [hexToHsl(topOption.hex || '#888'), hexToHsl(bottomOption.hex || '#888')];
-    const comboScore = (moodFitScore(comboHsl[0], mood) + moodFitScore(comboHsl[1], mood)) / 2 * 0.5
-      + groupHarmony(comboHsl) * 0.5;
-
-    // Probabilistic selection if scores are within ~15%
-    const closeCall = Math.abs(dressScore - comboScore) < 0.15 * Math.max(dressScore, comboScore);
-    if (closeCall) {
-      const dressWeight = Math.pow(Math.max(dressScore, 0.01), 3);
-      const comboWeight = Math.pow(Math.max(comboScore, 0.01), 3);
-      base = Math.random() * (dressWeight + comboWeight) < dressWeight
-        ? [dressOption]
-        : [topOption, bottomOption];
-    } else {
-      base = dressScore >= comboScore ? [dressOption] : [topOption, bottomOption];
-    }
   } else if (topOption && bottomOption) {
     base = [topOption, bottomOption];
+  } else if (ethnicOption) {
+    base = [ethnicOption];
   } else if (dressOption) {
     base = [dressOption];
   } else if (topOption) {
@@ -181,24 +247,24 @@ function buildRuleBasedOutfit(wardrobe, ctx, recentPickIds = []) {
 
   base.forEach((item) => { picks.push(item); hslList.push(hexToHsl(item.hex || '#888')); });
 
-  // outerwear
+  // Outerwear
   const needsOuterwear = COLD_WEATHER.includes(weather);
   const avoidOuterwear = HOT_WEATHER.includes(weather);
   if (!avoidOuterwear) {
-    const outer = bestOfCategory(wardrobe, 'Outerwear', mood, hslList, exclude, picks);
+    const outer = bestOfRole(wardrobe, 'Outerwear', mood, hslList, exclude, picks, targetFormality);
     if (outer && (needsOuterwear || groupHarmony([...hslList, hexToHsl(outer.hex || '#888')]) > 0.75)) {
       picks.push(outer);
       hslList.push(hexToHsl(outer.hex || '#888'));
     }
   }
 
-  // shoes
-  const shoes = bestOfCategory(wardrobe, 'Shoes', mood, hslList, exclude, picks);
-  if (shoes) { picks.push(shoes); hslList.push(hexToHsl(shoes.hex || '#888')); }
+  // Footwear
+  const footwear = bestOfRole(wardrobe, 'Footwear', mood, hslList, exclude, picks, targetFormality);
+  if (footwear) { picks.push(footwear); hslList.push(hexToHsl(footwear.hex || '#888')); }
 
-  // accessory — only if it doesn't reduce running harmony by > 0.05
+  // Accessory
   const beforeHarmony = groupHarmony(hslList);
-  const accessory = bestOfCategory(wardrobe, 'Accessory', mood, hslList, exclude, picks);
+  const accessory = bestOfRole(wardrobe, 'Accessory', mood, hslList, exclude, picks, targetFormality);
   if (accessory) {
     const afterHarmony = groupHarmony([...hslList, hexToHsl(accessory.hex || '#888')]);
     if (afterHarmony >= beforeHarmony - 0.05) {
@@ -207,35 +273,65 @@ function buildRuleBasedOutfit(wardrobe, ctx, recentPickIds = []) {
     }
   }
 
-  const harmony = groupHarmony(hslList);
+  const rawHarmony = groupHarmony(hslList);
   const avgMood = hslList.reduce((sum, h) => sum + moodFitScore(h, mood), 0) / (hslList.length || 1);
+  const weatherMatch = needsOuterwear
+    ? (picks.some(p => getSopRole(p) === 'Outerwear') ? 0.95 : 0.6)
+    : (avoidOuterwear ? 0.9 : 0.85);
 
-  const colorStory = harmony > 0.8
-    ? 'These pieces share closely related or neutral tones, so they read as one deliberate palette.'
-    : harmony > 0.55
-    ? 'The colors sit in a complementary relationship — enough contrast to feel put-together rather than matched.'
-    : 'The palette leans eclectic — it works, but the colors don\u2019t lean on each other much.';
+  const harmonyScore = Math.round(rawHarmony * 100);
+  const moodScore = Math.round(avgMood * 100);
+  const weatherScore = Math.round(weatherMatch * 100);
+  const overallScore = Math.round(harmonyScore * 0.40 + moodScore * 0.35 + weatherScore * 0.25);
+
+  const confidence = overallScore >= 85 ? 'high' : (overallScore >= 65 ? 'medium' : 'low');
+
+  // Item justifications map
+  const itemJustifications = {};
+  picks.forEach((item) => {
+    const role = getSopRole(item);
+    itemJustifications[String(item.id)] = generateItemJustification(item, ctx, role, harmonyScore, moodScore);
+  });
+
+  const personaNames = {
+    formal: 'Sharp Professional Elegance',
+    ethnic: 'Festive Ethnic Sophistication',
+    casual: 'Relaxed & Breathable Casual',
+    'smart-casual': 'Smart-Casual Modern Ensemble'
+  };
+
+  const persona = personaNames[targetFormality] || 'Custom Styled Ensemble';
+
+  const colorStory = rawHarmony > 0.8
+    ? 'These pieces share closely related or neutral tones, creating a clean, high-harmony palette.'
+    : rawHarmony > 0.55
+    ? 'The colors sit in a balanced, complementary relationship — enough contrast to feel energetic without clashing.'
+    : 'An eclectic palette that introduces interesting contrast across garments.';
 
   const weatherFit = needsOuterwear
-    ? (picks.some(p => (p.category || p.cat) === 'Outerwear')
-        ? 'Outerwear is included to handle the ' + weather.toLowerCase() + ' conditions.'
-        : 'No outerwear was available in the closet for ' + weather.toLowerCase() + ' conditions — consider adding one.')
+    ? (picks.some(p => getSopRole(p) === 'Outerwear')
+        ? `Outerwear layer included to protect against ${weather.toLowerCase()} conditions.`
+        : `Selected pieces for ${weather.toLowerCase()} weather; adding outerwear will further boost warmth.`)
     : avoidOuterwear
-    ? 'Kept light and layer-free for the ' + weather.toLowerCase() + ' weather.'
-    : 'A comfortable balance for ' + weather.toLowerCase() + ' conditions.';
+    ? `Light, unlayered silhouette curated for ${weather.toLowerCase()} conditions.`
+    : `A balanced, comfortable ensemble suited for ${weather.toLowerCase()} weather.`;
 
   const moodFit = avgMood > 0.65
-    ? `The tones and finishes lean into a ${mood.toLowerCase()} feel.`
-    : `A reasonable, if not perfect, match for a ${mood.toLowerCase()} mood — the closet may be light on options here.`;
-
-  const confidence = (harmony > 0.75 && avgMood > 0.6) ? 'high' : (harmony > 0.5 ? 'medium' : 'low');
+    ? `The tones and silhouettes strongly evoke a ${mood.toLowerCase()} mood.`
+    : `A suitable match for a ${mood.toLowerCase()} mood based on available closet pieces.`;
 
   return {
     pick_ids: picks.map((p) => String(p.id)),
+    persona,
+    harmony_score: harmonyScore,
+    mood_score: moodScore,
+    weather_score: weatherScore,
+    overall_score: overallScore,
+    confidence,
+    item_justifications: itemJustifications,
     color_story: colorStory,
     weather_fit: weatherFit,
-    mood_fit: moodFit,
-    confidence
+    mood_fit: moodFit
   };
 }
 
@@ -245,23 +341,32 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
   const { weather, temp, mood, occasion } = ctx;
   const wardrobeForPrompt = wardrobe.map((i) => ({
     id: String(i.id), name: i.name, description: i.description || undefined,
-    category: i.category || i.cat, size: i.size || undefined, hex: i.hex
+    category: i.category || i.cat, pattern: i.pattern, size: i.size || undefined, hex: i.hex
   }));
 
-  const prompt = `You are a thoughtful, concise personal stylist. Here is the person's wardrobe as JSON:
-${JSON.stringify(wardrobeForPrompt)}
+  const prompt = `You are an expert stylist for Poshak (attire & outfit stylist). 
+Wardrobe: ${JSON.stringify(wardrobeForPrompt)}. 
+Context: Weather=${weather}${temp ? ', Temp=' + temp + '°C' : ''}, Mood=${mood}, Occasion=${occasion || 'any'}.
 
-Today's context:
-- Weather: ${weather}${temp ? ', ' + temp + '\u00b0C' : ''}
-- Mood: ${mood}
-- Occasion: ${occasion || 'not specified \u2014 use your best judgment'}
+Return ONLY valid JSON matching this exact structure:
+{
+  "pick_ids": ["id1", "id2"],
+  "persona": "Catchy persona title (e.g. Crisp Professional Layering)",
+  "harmony_score": 90,
+  "mood_score": 85,
+  "weather_score": 95,
+  "overall_score": 90,
+  "confidence": "high|medium|low",
+  "item_justifications": {
+    "id1": "Detailed explanation why id1 was chosen...",
+    "id2": "Detailed explanation why id2 was chosen..."
+  },
+  "color_story": "Detailed explanation of color synergy...",
+  "weather_fit": "Detailed explanation of weather suitability...",
+  "mood_fit": "Detailed explanation of mood alignment..."
+}`;
 
-Choose a complete, coherent outfit using ONLY item ids from the wardrobe above (a top or a dress, a bottom if not wearing a dress, outerwear only if the weather calls for it, shoes if available, and at most one accessory). Weigh color harmony between the chosen pieces, suitability for the weather, and fit with the stated mood.
-
-Respond with ONLY valid JSON \u2014 no markdown fences, no preamble, no trailing text \u2014 in exactly this shape:
-{"pick_ids": ["id1","id2"], "color_story": "1-2 sentences on why these colors work together", "weather_fit": "1 sentence on why this suits the weather", "mood_fit": "1 sentence on why this suits the mood", "confidence": "high|medium|low"}`;
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -271,18 +376,16 @@ Respond with ONLY valid JSON \u2014 no markdown fences, no preamble, no trailing
     },
     body: JSON.stringify({
       model: 'claude-3-5-sonnet-latest',
-      max_tokens: 1000,
+      max_tokens: 1200,
       messages: [{ role: 'user', content: prompt }]
     })
   });
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '');
-    throw new Error('Anthropic API error (' + response.status + '): ' + errText.slice(0, 200));
+  if (!res.ok) {
+    throw new Error('API error (' + res.status + ')');
   }
 
-  const data = await response.json();
-  const textBlocks = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-  const clean = textBlocks.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  const data = await res.json();
+  const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
