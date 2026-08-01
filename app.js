@@ -599,6 +599,65 @@
     if (adviceEl) adviceEl.textContent = profile.advice || 'Tailored cuts and harmonious palettes complement your personal silhouette.';
   }
 
+  async function runProfileAnalysis() {
+    if (!pendingProfilePhotoDataUrl) return;
+    const status = $('#profile-status');
+    const btn = $('#analyze-profile-btn');
+    const apiKey = loadApiKey();
+    if (btn) btn.disabled = true;
+
+    status.textContent = 'Analyzing skin tone & body silhouette...';
+
+    try {
+      let profile;
+      if (apiKey && navigator.onLine) {
+        status.textContent = 'Consulting AI Vision for personal profile analysis...';
+        const aiData = await analyzePersonalProfileAi(pendingProfilePhotoDataUrl, apiKey);
+        profile = {
+          skinTone: aiData.skin_tone,
+          undertone: aiData.undertone,
+          season: aiData.color_season,
+          bestColors: aiData.best_hex_colors || ['#C99A3E', '#8C5E75', '#7C8F6E', '#C47F3B'],
+          avoidColors: aiData.avoid_hex_colors || ['#E5E5E5'],
+          bodyShape: aiData.body_shape,
+          advice: aiData.styling_advice
+        };
+      } else {
+        const img = new Image();
+        await new Promise((resolve) => {
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const maxDim = 300;
+              const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+              canvas.width = Math.round(img.width * scale);
+              canvas.height = Math.round(img.height * scale);
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              profile = PoshakColorUtils.analyzePersonalProfile(canvas);
+            } catch (err) {
+              console.error('Local profile analysis error', err);
+            }
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = pendingProfilePhotoDataUrl;
+        });
+      }
+      if (profile) {
+        profile.photo = pendingProfilePhotoDataUrl;
+        saveUserProfile(profile);
+        status.textContent = '✨ Profile analyzed & saved 100% locally.';
+      } else {
+        status.textContent = 'Could not process image metrics.';
+      }
+    } catch (err) {
+      status.textContent = 'Profile analysis failed: ' + (err.message || 'Error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   const userProfilePhotoInput = $('#user-profile-photo');
   if (userProfilePhotoInput) {
     userProfilePhotoInput.addEventListener('change', (e) => {
@@ -609,8 +668,7 @@
         pendingProfilePhotoDataUrl = ev.target.result;
         const prev = $('#user-profile-preview');
         if (prev) prev.style.backgroundImage = `url(${pendingProfilePhotoDataUrl})`;
-        const btn = $('#analyze-profile-btn');
-        if (btn) btn.disabled = false;
+        runProfileAnalysis();
       };
       reader.readAsDataURL(file);
     });
@@ -618,53 +676,8 @@
 
   const analyzeProfileBtn = $('#analyze-profile-btn');
   if (analyzeProfileBtn) {
-    analyzeProfileBtn.addEventListener('click', async () => {
-      if (!pendingProfilePhotoDataUrl) return;
-      const status = $('#profile-status');
-      const apiKey = loadApiKey();
-      analyzeProfileBtn.disabled = true;
-
-      status.textContent = 'Analyzing skin tone & body silhouette...';
-
-      try {
-        let profile;
-        if (apiKey && navigator.onLine) {
-          status.textContent = 'Consulting AI Vision for personal profile analysis...';
-          const aiData = await analyzePersonalProfileAi(pendingProfilePhotoDataUrl, apiKey);
-          profile = {
-            skinTone: aiData.skin_tone,
-            undertone: aiData.undertone,
-            season: aiData.color_season,
-            bestColors: aiData.best_hex_colors || ['#C99A3E', '#8C5E75', '#7C8F6E', '#C47F3B'],
-            avoidColors: aiData.avoid_hex_colors || ['#E5E5E5'],
-            bodyShape: aiData.body_shape,
-            advice: aiData.styling_advice
-          };
-        } else {
-          const img = new Image();
-          await new Promise((resolve) => {
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const maxDim = 300;
-              const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-              canvas.width = Math.round(img.width * scale);
-              canvas.height = Math.round(img.height * scale);
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              profile = PoshakColorUtils.analyzePersonalProfile(canvas);
-              resolve();
-            };
-            img.src = pendingProfilePhotoDataUrl;
-          });
-        }
-        profile.photo = pendingProfilePhotoDataUrl;
-        saveUserProfile(profile);
-        status.textContent = '✨ Profile analyzed & saved 100% locally.';
-      } catch (err) {
-        status.textContent = 'Profile analysis failed: ' + (err.message || 'Error');
-      } finally {
-        analyzeProfileBtn.disabled = false;
-      }
+    analyzeProfileBtn.addEventListener('click', () => {
+      runProfileAnalysis();
     });
   }
 

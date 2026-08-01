@@ -326,9 +326,8 @@
       const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
       const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 
-      if (y >= 60 && y <= 230 && cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) {
+      if (y >= 40 && y <= 245 && cb >= 70 && cb <= 140 && cr >= 125 && cr <= 185) {
         sumR += r; sumG += g; sumB_rgb += b;
-        // Simple Lab L*, b* approximation
         const lVal = 0.2126 * r + 0.7152 * g + 0.0722 * b;
         const aVal = (r - g) * 0.5;
         const bVal = (g - b) * 0.5;
@@ -337,8 +336,21 @@
       }
     }
 
+    // Fallback: Sample central face/portrait region (30%-70% width, 20%-65% height) if mask produced < 10 points
     if (count < 10) {
-      return { skinTone: 'Intermediate / Wheatish', undertone: 'Warm Golden', season: 'Warm Autumn', bestColors: ['#C99A3E', '#8C5E75', '#7C8F6E', '#C47F3B'], avoidColors: ['#E5E5E5'] };
+      const startX = Math.floor(w * 0.3), endX = Math.floor(w * 0.7);
+      const startY = Math.floor(h * 0.2), endY = Math.floor(h * 0.65);
+      for (let y = startY; y < endY; y += 2) {
+        for (let x = startX; x < endX; x += 2) {
+          const idx = (y * w + x) * 4;
+          const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+          const lVal = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          const aVal = (r - g) * 0.5;
+          const bVal = (g - b) * 0.5;
+          sumL += lVal; sumA += aVal; sumB += bVal;
+          count++;
+        }
+      }
     }
 
     const meanL = sumL / count;
