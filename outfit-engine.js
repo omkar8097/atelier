@@ -765,6 +765,70 @@ Return ONLY valid JSON matching this exact structure:
   return parsed;
 }
 
+async function requestAiItemFields(photoDataUrl, apiKey) {
+  if (!apiKey) throw new Error('API key required for AI item parsing');
+  let mediaType = 'image/jpeg';
+  let base64 = photoDataUrl;
+  if (photoDataUrl.includes(',')) {
+    const parts = photoDataUrl.split(',');
+    const meta = parts[0];
+    base64 = parts[1];
+    const match = meta.match(/data:(.*);base64/);
+    if (match) mediaType = match[1];
+  }
+
+  const categoryList = [
+    'Casual Shirt', 'Formal Shirt', 'T-Shirt / Polo', 'Kurta',
+    'Formal Trousers', 'Chinos', 'Jeans', 'Shorts', 'Pyjamas / Trackpants',
+    'Dress / One-Piece', 'Saree / Ethnic Set', 'Jacket / Blazer / Coat',
+    'Nehru Jacket / Dupatta', 'Formal Shoes / Loafers', 'Sneakers / Casual Shoes',
+    'Juttis / Kolhapuris / Sandals', 'Watch / Belt / Sunglasses', 'Jewelry / Bags'
+  ];
+
+  const prompt = `You are cataloguing a single clothing item photo for a wardrobe app.
+Look only at the garment in the photo. Choose category from EXACTLY this list (verbatim match required):
+${JSON.stringify(categoryList)}
+
+Return ONLY valid JSON with these exact keys:
+{
+  "name": "Short, specific name (e.g. 'Navy Cotton Chinos'), max 6 words",
+  "description": "1 sentence describing fit, texture, or key details",
+  "category": "must be one exact verbatim string from the provided category list",
+  "pattern": "Solid | Striped | Plaid | Floral | Textured",
+  "size_guess": "size string ONLY if a tag/label is clearly visible, else empty string",
+  "confidence": "high | medium | low"
+}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-sonnet-latest',
+      max_tokens: 500,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  if (!res.ok) {
+    throw new Error('API error (' + res.status + ')');
+  }
+
+  const data = await res.json();
+  const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
 // Namespaced handle
 const PoshakOutfitEngine = {
   version: ENGINE_VERSION,
@@ -775,7 +839,8 @@ const PoshakOutfitEngine = {
   buildRuleBasedOutfit,
   requestAiOutfit,
   analyzeClosetReadiness,
-  requestAiClosetReview
+  requestAiClosetReview,
+  requestAiItemFields
 };
 if (typeof window !== 'undefined') {
   window.PoshakOutfitEngine = PoshakOutfitEngine;

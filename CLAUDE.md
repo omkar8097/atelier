@@ -17,9 +17,10 @@ deterministic rule-based engine.
 | `index.html` | App shell (multi-file dev version) — loads `styles.css`, `csv-utils.js`, `outfit-engine.js`, `app.js` as separate files |
 | `atelier-standalone.html` | **Generated file** — same app, everything inlined into one HTML file for offline/zero-server use |
 | `styles.css` | All styling, design tokens (CSS vars), light/dark theme, logo styling & style presets (`royal`, `minimal`, `heritage`) with high-clarity light backgrounds |
+| `color-utils.js` | **100% Offline Photo Intelligence**: K-Means++ dominant color extraction, Sobel pattern detection, local category & title/description pre-fill heuristics |
 | `app.js` | UI wiring: tabs, chips, bottom sheet, closet CRUD, photo handling, theme toggle, lightbox, calls into `outfit-engine.js`. Consumes the outfit object only by its field names (`pick_ids`, `persona`, `harmony_score`, `mood_score`, `weather_score`, `overall_score`, `confidence`, `item_justifications`, `color_story`, `weather_fit`, `mood_fit`) — it does not care which engine version produced them, so engine internals can change freely as long as that shape is preserved. |
 | `csv-utils.js` | CSV parse/serialize (RFC4180-ish), `downloadCsv()` |
-| `outfit-engine.js` | **v2, config/registry-driven.** The two outfit engines: `buildRuleBasedOutfit()` (local/deterministic) and `requestAiOutfit()` (Claude API). See "The outfit-reasoning engine (v2)" below before editing this file. |
+| `outfit-engine.js` | **v2, config/registry-driven.** The outfit engines: `buildRuleBasedOutfit()`, `requestAiOutfit()`, and `requestAiItemFields()` (Claude Vision multimodal parser). See "The outfit-reasoning engine (v2)" below before editing this file. |
 | `scripts/build-standalone.js` | Node script that regenerates `atelier-standalone.html` from the other files. Uses whitespace-tolerant regexes and throws if a source tag isn't found — see "Standalone build" below. |
 | `manifest.json` | PWA manifest |
 | `sw.js` | Service worker — precaches the app shell, versioned by `CACHE_NAME` |

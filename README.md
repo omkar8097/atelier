@@ -18,6 +18,7 @@ A mobile-installable outfit stylist application. Your closet is stored as CSV te
 - 🤖 **AI Stylist Mode**: Optionally consults Claude (`claude-3-5-sonnet-latest`) using your personal Anthropic API key stored locally in browser storage when internet is connected.
 - 🔍 **Review Closet Tab (Scenario Readiness & Gap Engine)**: Dedicated Review tab with AI/Rule-based toggle that analyzes total closet inventory, evaluates readiness scores across 5 scenarios (Professional, Casual, Ethnic, Summer, Winter), and recommends missing clothing items with exact matching colors.
 - 🔄 **Disabled Accidental Refresh & Settings Reload**: Pull-to-refresh overscroll and keyboard reload shortcuts (F5 / Ctrl+R) are disabled to prevent accidental state resets; explicit **"Refresh App"** button provided in the Settings tab.
+- 🧠 **100% Offline Photo Intelligence**: Zero-network local image analysis engine (`color-utils.js`) using K-Means++ background-ring-excluded color clustering, Sobel gradient pattern detection, aspect ratio & hue heuristics to pre-fill item color, pattern, category chip, title, and description automatically from a uploaded photo.
 - 👑 **Luxury Brand Emblem & Large Clear Drawing Logo**: Prominent 54px high-visibility golden clothes hanger & royal kurta line drawing icon on a bright light background (#FAF8F5 / #FFFFFF container); supports 3 selectable style presets (Royal Emerald & Gold, Modern Minimal, Desi Heritage Arch) in Settings with clean contrast across light & dark themes.
 - 📊 **CSV Import/Export in Settings**: Export or import your closet as RFC4180-compliant CSV data at any time directly from the Settings tab.
 
@@ -42,7 +43,7 @@ npx serve .
 
 ## Standalone Build Automation
 
-To keep `atelier-standalone.html` automatically synchronized with `index.html`, `styles.css`, `csv-utils.js`, `outfit-engine.js`, and `app.js`, run:
+To keep `atelier-standalone.html` automatically synchronized with `index.html`, `styles.css`, `color-utils.js`, `csv-utils.js`, `outfit-engine.js`, and `app.js`, run:
 
 ```bash
 node scripts/build-standalone.js
@@ -55,12 +56,13 @@ node scripts/build-standalone.js
 | `index.html` | App shell — Poshak header, Closet (with 2-col grid & sheet form), Today, Settings, Theme Switch, Lightbox |
 | `atelier-standalone.html` | **Single-file standalone bundle**: Complete HTML + CSS + JS in 1 file compiled automatically via `scripts/build-standalone.js` |
 | `styles.css` | Design system, role-based CSS tokens, light/dark themes, bottom sheet, FAB, scorecard, and lightbox styling |
+| `color-utils.js` | **100% Offline Photo Intelligence**: K-Means++ dominant color extraction, Sobel pattern detection, local category & title/description pre-fill heuristics |
 | `app.js` | UI wiring, theme engine, 18-category system, bottom sheet controls, lightbox, scorecard, closet CRUD |
 | `csv-utils.js` | Reads/writes closet as CSV (parsing, escaping, header normalization, UTF-8 BOM, download) |
-| `outfit-engine.js` | Outfit engines: `buildRuleBasedOutfit()` (shortlisting, formality SOP, item justifications, scorecards) and `requestAiOutfit()` (Claude API) |
+| `outfit-engine.js` | Outfit engines: `buildRuleBasedOutfit()` (shortlisting, formality SOP, item justifications, scorecards), `requestAiOutfit()`, and `requestAiItemFields()` (Claude API) |
 | `scripts/build-standalone.js` | Build automation script to generate `atelier-standalone.html` |
 | `manifest.json` | PWA install metadata (`Poshak — Outfit Stylist`, standalone display mode, maskable icons) |
-| `sw.js` | Service worker — precaches app shell (`poshak-v16`) with offline fetch fallback for standalone execution |
+| `sw.js` | Service worker — precaches app shell (`poshak-v17`) with offline fetch fallback for standalone execution |
 | `icons/` | App icons (192x192 and 512x512) for home screen installation |
 
 ## Data model (one CSV row per item)

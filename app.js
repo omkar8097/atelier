@@ -193,7 +193,32 @@
     updateCta();
   });
 
-  // ---------- photo handling (original size preserved) ----------
+  // ---------- photo handling & 100% offline auto-fill ----------
+  function runOfflineAutoFill(canvas) {
+    if (!window.PoshakColorUtils) return;
+    try {
+      const colors = PoshakColorUtils.extractDominantColors(canvas);
+      const patternGuess = PoshakColorUtils.detectPattern(canvas);
+      const offlineFill = PoshakColorUtils.detectCategoryAndSmartFill(canvas, colors, patternGuess);
+
+      if (colors && colors[0]) {
+        $('#item-color').value = colors[0].hex;
+      }
+      if (patternGuess && patternGuess.pattern) {
+        $('#item-pattern').value = patternGuess.pattern;
+      }
+      if (offlineFill) {
+        if (!$('#item-name').value.trim()) $('#item-name').value = offlineFill.title;
+        if (!$('#item-desc').value.trim()) $('#item-desc').value = offlineFill.description;
+        const cat = offlineFill.category;
+        $('#item-cat').value = cat;
+        document.querySelectorAll('.cat-chip').forEach((c) => c.classList.toggle('sel', c.dataset.cat === cat));
+      }
+    } catch (err) {
+      console.error('Offline auto-fill failed', err);
+    }
+  }
+
   $('#item-photo').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -203,27 +228,75 @@
       $('#photo-preview').style.backgroundImage = `url(${pendingPhotoDataUrl})`;
       $('#photo-preview').dataset.full = pendingPhotoDataUrl;
       $('#photo-label').textContent = 'Change photo';
+      const autofillBtn = $('#autofill-btn');
+      if (autofillBtn) autofillBtn.disabled = false;
+
       const img = new Image();
       img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
-          const w = Math.min(img.width, 200), h = Math.min(img.height, 200);
+          const maxDim = 200;
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
           canvas.width = w; canvas.height = h;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
-          const data = ctx.getImageData(0, 0, w, h).data;
-          let r = 0, g = 0, b = 0, n = 0;
-          for (let i = 0; i < data.length; i += 16) { r += data[i]; g += data[i + 1]; b += data[i + 2]; n++; }
-          if (n > 0) {
-            r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
-            $('#item-color').value = '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
-          }
-        } catch (err) { /* leave color as-is */ }
+          runOfflineAutoFill(canvas);
+          const status = $('#autofill-status');
+          if (status) status.textContent = 'Auto-filled 100% offline from photo.';
+        } catch (err) { /* leave fields as-is */ }
       };
       img.src = pendingPhotoDataUrl;
     };
     reader.readAsDataURL(file);
   });
+
+  const autofillBtn = $('#autofill-btn');
+  if (autofillBtn) {
+    autofillBtn.addEventListener('click', async () => {
+      if (!pendingPhotoDataUrl) return;
+      const status = $('#autofill-status');
+      const apiKey = loadApiKey();
+
+      status.textContent = 'Analyzing photo...';
+      autofillBtn.disabled = true;
+
+      try {
+        if (apiKey && navigator.onLine) {
+          status.textContent = 'Consulting AI vision for item details...';
+          const fields = await requestAiItemFields(pendingPhotoDataUrl, apiKey);
+          if (fields.name) $('#item-name').value = fields.name;
+          if (fields.description) $('#item-desc').value = fields.description;
+          if (fields.category) {
+            $('#item-cat').value = fields.category;
+            document.querySelectorAll('.cat-chip').forEach((c) => c.classList.toggle('sel', c.dataset.cat === fields.category));
+          }
+          if (fields.pattern) $('#item-pattern').value = fields.pattern;
+          if (fields.size_guess) $('#item-size').value = fields.size_guess;
+          status.textContent = '✨ Fields refined via AI Vision.';
+        } else {
+          // 100% offline auto-fill
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDim = 200;
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            runOfflineAutoFill(canvas);
+            status.textContent = 'Auto-filled 100% offline from photo.';
+          };
+          img.src = pendingPhotoDataUrl;
+        }
+      } catch (err) {
+        status.textContent = 'Offline detection active. (AI unavailable: ' + (err.message || 'offline') + ')';
+      } finally {
+        autofillBtn.disabled = false;
+      }
+    });
+  }
 
   // ---------- bottom sheet controls ----------
   function openSheet() {
@@ -263,6 +336,10 @@
     $('#photo-preview').style.backgroundImage = '';
     $('#photo-preview').dataset.full = '';
     $('#photo-label').textContent = 'Upload photo';
+    const ab = $('#autofill-btn');
+    if (ab) ab.disabled = true;
+    const st = $('#autofill-status');
+    if (st) st.textContent = '';
     $('#form-card-title').textContent = 'Add new piece';
     $('#add-btn').textContent = 'Add to closet';
   }

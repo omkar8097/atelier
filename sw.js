@@ -1,8 +1,9 @@
-const CACHE_NAME = 'poshak-v16';
+const CACHE_NAME = 'poshak-v17';
 const SHELL_FILES = [
   './',
   './index.html',
   './styles.css',
+  './color-utils.js',
   './app.js',
   './csv-utils.js',
   './outfit-engine.js',

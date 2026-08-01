@@ -193,6 +193,11 @@
       </div>
     </div>
 
+    <button type="button" class="btn btn-ghost" id="autofill-btn" style="margin-bottom:10px;width:100%;font-size:12px;" disabled>
+      ✨ Auto-fill fields from photo
+    </button>
+    <div id="autofill-status" style="font-size:11px;color:var(--text-dim);margin-bottom:10px;text-align:center;"></div>
+
     <div class="btn-row">
       <button class="btn btn-primary" id="add-btn">Add to closet</button>
       <button class="btn btn-ghost" id="cancel-btn">Cancel</button>
@@ -214,6 +219,7 @@
 
 </div>
 
+<script src="color-utils.js"></script>
 <script src="csv-utils.js"></script>
 <script src="outfit-engine.js"></script>
 <script src="app.js"></script>
