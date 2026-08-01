@@ -63,7 +63,7 @@ id,name,description,category,pattern,size,hex,photo
   are treated as "busy" patterns (`BUSY_PATTERNS` in `outfit-engine.js`) and the rule engine
   enforces at most one busy pattern among main garments (Top/Bottom/Dress/Outerwear/Ethnic Wear)
   per outfit.
-- `photo` is a base64 data URL, client-resized to ≤480px longest side, JPEG q=0.75, before storage.
+- `photo` is a base64 data URL, preserving full original image resolution and quality before storage.
 - Items also carry a legacy `cat` alias mirroring `category` — some older code paths read `cat`
   as a fallback. Keep both fields in sync when creating/editing items.
 - Local storage keys: `poshak_csv` (wardrobe CSV; falls back to reading legacy `atelier_csv` if

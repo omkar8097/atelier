@@ -193,26 +193,24 @@
     updateCta();
   });
 
-  // ---------- photo handling (480px resolution bump) ----------
+  // ---------- photo handling (original size preserved) ----------
   $('#item-photo').addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
+      pendingPhotoDataUrl = ev.target.result;
+      $('#photo-preview').style.backgroundImage = `url(${pendingPhotoDataUrl})`;
+      $('#photo-preview').dataset.full = pendingPhotoDataUrl;
+      $('#photo-label').textContent = 'Change photo';
       const img = new Image();
       img.onload = () => {
-        const maxDim = 480;
-        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, w, h);
-        pendingPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.75);
-        $('#photo-preview').style.backgroundImage = `url(${pendingPhotoDataUrl})`;
-        $('#photo-preview').dataset.full = pendingPhotoDataUrl;
-        $('#photo-label').textContent = 'Change photo';
         try {
+          const canvas = document.createElement('canvas');
+          const w = Math.min(img.width, 200), h = Math.min(img.height, 200);
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
           const data = ctx.getImageData(0, 0, w, h).data;
           let r = 0, g = 0, b = 0, n = 0;
           for (let i = 0; i < data.length; i += 16) { r += data[i]; g += data[i + 1]; b += data[i + 2]; n++; }
@@ -222,7 +220,7 @@
           }
         } catch (err) { /* leave color as-is */ }
       };
-      img.src = ev.target.result;
+      img.src = pendingPhotoDataUrl;
     };
     reader.readAsDataURL(file);
   });
