@@ -279,6 +279,15 @@ nav.tabbar button.active .dot-ind{background:var(--ochre);}
         <option value="Accessory">Accessory</option>
       </select>
 
+      <label class="field-label">Pattern</label>
+      <select id="item-pattern">
+        <option value="Solid">Solid</option>
+        <option value="Striped">Striped</option>
+        <option value="Plaid">Plaid</option>
+        <option value="Floral">Floral</option>
+        <option value="Textured">Textured</option>
+      </select>
+
       <label class="field-label">Size (optional)</label>
       <input type="text" id="item-size" placeholder="M / 32 / 9 UK">
 
@@ -382,9 +391,20 @@ nav.tabbar button.active .dot-ind{background:var(--ochre);}
 
 <script>
 // CSV Utils
-const CSV_COLUMNS = ['id', 'name', 'description', 'category', 'size', 'hex', 'photo'];
+const CSV_COLUMNS = ['id', 'name', 'description', 'category', 'pattern', 'size', 'hex', 'photo'];
 function csvEscapeField(v) { const s = v === undefined || v === null ? '' : String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
-function itemsToCsv(items) { return [CSV_COLUMNS.join(','), ...items.map(i => CSV_COLUMNS.map(c => csvEscapeField(i[c])).join(','))].join('\r\n'); }
+function itemsToCsv(items) {
+  const header = CSV_COLUMNS.join(',');
+  const rows = (items || []).map((item) =>
+    CSV_COLUMNS.map((col) => {
+      let val = item[col];
+      if (col === 'category' && !val) val = item.cat;
+      if (col === 'pattern' && !val) val = 'Solid';
+      return csvEscapeField(val);
+    }).join(',')
+  );
+  return '\uFEFF' + [header, ...rows].join('\r\n');
+}
 function parseCsvRows(text) {
   const rows = []; let row = [], field = '', inQ = false, i = 0;
   while (i < text.length) {
@@ -404,21 +424,38 @@ function parseCsvRows(text) {
 }
 function csvToItems(text) {
   if (!text || !text.trim()) return [];
-  const rows = parseCsvRows(text.trim()); if (!rows.length) return [];
-  const header = rows[0];
-  return rows.slice(1).map(r => {
-    const obj = {}; header.forEach((col, idx) => obj[col] = r[idx] !== undefined ? r[idx] : '');
-    obj.id = Number(obj.id) || 0;
-    if (obj.category && !obj.cat) obj.cat = obj.category;
-    if (obj.cat && !obj.category) obj.category = obj.cat;
-    return obj;
+  let cleanText = text.trim();
+  if (cleanText.charCodeAt(0) === 0xFEFF) cleanText = cleanText.slice(1);
+  const rows = parseCsvRows(cleanText); if (!rows.length) return [];
+  const rawHeader = rows[0];
+  const header = rawHeader.map((h) => h.replace(/^["']|["']$/g, '').trim().toLowerCase());
+  const dataRows = rows.slice(1);
+  return dataRows.map((r, idx) => {
+    const rawObj = {}; header.forEach((col, i) => rawObj[col] = r[i] !== undefined ? r[i] : '');
+    const categoryVal = String(rawObj.category || rawObj.cat || 'Top').trim();
+    const hexVal = String(rawObj.hex || '#5b6b8c').trim();
+    return {
+      id: Number(rawObj.id) || (idx + 1),
+      name: String(rawObj.name || '').trim(),
+      description: String(rawObj.description || '').trim(),
+      category: categoryVal || 'Top',
+      cat: categoryVal || 'Top',
+      pattern: String(rawObj.pattern || 'Solid').trim() || 'Solid',
+      size: String(rawObj.size || '').trim(),
+      hex: (hexVal.startsWith('#') ? hexVal : '#' + hexVal) || '#5b6b8c',
+      photo: String(rawObj.photo || '').trim()
+    };
   });
 }
 function downloadCsv(csvText, filename) {
   const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+    window.navigator.msSaveOrOpenBlob(blob, filename); return;
+  }
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = filename; a.target = '_blank';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { try { document.body.removeChild(a); URL.revokeObjectURL(url); } catch(e){} }, 1000);
 }
 
 // HSL & Outfit Engine
@@ -466,27 +503,54 @@ function moodFitScore(hsl, mood) {
 }
 const COLD_WEATHER = ['Cold', 'Snowy', 'Windy'];
 const HOT_WEATHER = ['Hot', 'Sunny', 'Humid'];
-function bestOfCategory(items, category, mood, baseHslList) {
-  const pool = items.filter((i) => (i.category || i.cat) === category);
-  if (pool.length === 0) return null;
-  let best = null, bestScore = -1;
-  pool.forEach((item) => {
+const BUSY_PATTERNS = ['Striped', 'Plaid', 'Floral'];
+const MAIN_GARMENTS = ['Top', 'Bottom', 'Dress', 'Outerwear'];
+function isBusyPattern(p) { return BUSY_PATTERNS.includes(p); }
+
+function shortlistOfCategory(items, category, mood, baseHslList, currentPicks = [], topN = 3) {
+  let pool = items.filter((i) => (i.category || i.cat) === category);
+  if (pool.length === 0) return [];
+  if (MAIN_GARMENTS.includes(category)) {
+    const hasBusyMain = currentPicks.some(p => MAIN_GARMENTS.includes(p.category || p.cat) && isBusyPattern(p.pattern));
+    if (hasBusyMain) {
+      const nonBusy = pool.filter(i => !isBusyPattern(i.pattern));
+      if (nonBusy.length > 0) pool = nonBusy;
+    }
+  }
+  const scored = pool.map((item) => {
     const hsl = hexToHsl(item.hex || '#888888');
     const mScore = moodFitScore(hsl, mood);
     const cScore = baseHslList.length ? groupHarmony([...baseHslList, hsl]) : 1;
-    const score = mScore * 0.4 + cScore * 0.6;
-    if (score > bestScore) { bestScore = score; best = item; }
-  });
-  return best;
+    return { item, score: mScore * 0.4 + cScore * 0.6 };
+  }).sort((a, b) => b.score - a.score);
+  return scored.slice(0, Math.min(topN, scored.length));
 }
-function buildRuleBasedOutfit(wardrobe, ctx) {
+
+function weightedPick(shortlist, excludeIds = []) {
+  if (shortlist.length === 0) return null;
+  let pool = shortlist.filter((c) => !excludeIds.includes(String(c.item.id)));
+  if (pool.length === 0) pool = shortlist;
+  const weights = pool.map((c) => Math.pow(Math.max(c.score, 0.01), 3));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < pool.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return pool[i].item;
+  }
+  return pool[pool.length - 1].item;
+}
+
+function bestOfCategory(items, category, mood, baseHslList, excludeIds = [], currentPicks = []) {
+  const shortlist = shortlistOfCategory(items, category, mood, baseHslList, currentPicks);
+  return weightedPick(shortlist, excludeIds);
+}
+
+function buildRuleBasedOutfit(wardrobe, ctx, recentPickIds = []) {
   const { weather, mood } = ctx;
-  const picks = [], hslList = [];
-  const dressOption = bestOfCategory(wardrobe, 'Dress', mood, []);
-  const topOption = bestOfCategory(wardrobe, 'Top', mood, []);
-  const bottomOption = topOption
-    ? bestOfCategory(wardrobe, 'Bottom', mood, [hexToHsl(topOption.hex || '#888')])
-    : bestOfCategory(wardrobe, 'Bottom', mood, []);
+  const picks = [], hslList = [], exclude = (recentPickIds || []).map(String);
+  const dressOption = bestOfCategory(wardrobe, 'Dress', mood, [], exclude, picks);
+  const topOption = bestOfCategory(wardrobe, 'Top', mood, [], exclude, picks);
+  const bottomOption = topOption ? bestOfCategory(wardrobe, 'Bottom', mood, [hexToHsl(topOption.hex || '#888')], exclude, topOption ? [topOption] : []) : bestOfCategory(wardrobe, 'Bottom', mood, [], exclude, []);
 
   let base = [];
   if (dressOption && (!topOption || !bottomOption)) base = [dressOption];
@@ -494,7 +558,11 @@ function buildRuleBasedOutfit(wardrobe, ctx) {
     const dressScore = moodFitScore(hexToHsl(dressOption.hex || '#888'), mood);
     const comboHsl = [hexToHsl(topOption.hex || '#888'), hexToHsl(bottomOption.hex || '#888')];
     const comboScore = (moodFitScore(comboHsl[0], mood) + moodFitScore(comboHsl[1], mood)) / 2 * 0.5 + groupHarmony(comboHsl) * 0.5;
-    base = dressScore >= comboScore ? [dressOption] : [topOption, bottomOption];
+    const closeCall = Math.abs(dressScore - comboScore) < 0.15 * Math.max(dressScore, comboScore);
+    if (closeCall) {
+      const dressWeight = Math.pow(Math.max(dressScore, 0.01), 3), comboWeight = Math.pow(Math.max(comboScore, 0.01), 3);
+      base = Math.random() * (dressWeight + comboWeight) < dressWeight ? [dressOption] : [topOption, bottomOption];
+    } else base = dressScore >= comboScore ? [dressOption] : [topOption, bottomOption];
   } else if (topOption && bottomOption) base = [topOption, bottomOption];
   else if (dressOption) base = [dressOption];
   else if (topOption) base = [topOption];
@@ -503,15 +571,15 @@ function buildRuleBasedOutfit(wardrobe, ctx) {
   base.forEach((item) => { picks.push(item); hslList.push(hexToHsl(item.hex || '#888')); });
   const needsOuterwear = COLD_WEATHER.includes(weather), avoidOuterwear = HOT_WEATHER.includes(weather);
   if (!avoidOuterwear) {
-    const outer = bestOfCategory(wardrobe, 'Outerwear', mood, hslList);
+    const outer = bestOfCategory(wardrobe, 'Outerwear', mood, hslList, exclude, picks);
     if (outer && (needsOuterwear || groupHarmony([...hslList, hexToHsl(outer.hex || '#888')]) > 0.75)) {
       picks.push(outer); hslList.push(hexToHsl(outer.hex || '#888'));
     }
   }
-  const shoes = bestOfCategory(wardrobe, 'Shoes', mood, hslList);
+  const shoes = bestOfCategory(wardrobe, 'Shoes', mood, hslList, exclude, picks);
   if (shoes) { picks.push(shoes); hslList.push(hexToHsl(shoes.hex || '#888')); }
   const beforeHarmony = groupHarmony(hslList);
-  const accessory = bestOfCategory(wardrobe, 'Accessory', mood, hslList);
+  const accessory = bestOfCategory(wardrobe, 'Accessory', mood, hslList, exclude, picks);
   if (accessory) {
     const afterHarmony = groupHarmony([...hslList, hexToHsl(accessory.hex || '#888')]);
     if (afterHarmony >= beforeHarmony - 0.05) { picks.push(accessory); hslList.push(hexToHsl(accessory.hex || '#888')); }
@@ -526,7 +594,7 @@ function buildRuleBasedOutfit(wardrobe, ctx) {
 }
 async function requestAiOutfit(wardrobe, ctx, apiKey) {
   const { weather, temp, mood, occasion } = ctx;
-  const wardrobeForPrompt = wardrobe.map((i) => ({ id: String(i.id), name: i.name, description: i.description || undefined, category: i.category || i.cat, size: i.size || undefined, hex: i.hex }));
+  const wardrobeForPrompt = wardrobe.map((i) => ({ id: String(i.id), name: i.name, description: i.description || undefined, category: i.category || i.cat, pattern: i.pattern, size: i.size || undefined, hex: i.hex }));
   const prompt = `You are a personal stylist. Wardrobe: ${JSON.stringify(wardrobeForPrompt)}. Weather: ${weather}${temp ? ', ' + temp + '°C' : ''}, Mood: ${mood}, Occasion: ${occasion || 'any'}. Return ONLY valid JSON: {"pick_ids": ["id1"], "color_story": "...", "weather_fit": "...", "mood_fit": "...", "confidence": "high|medium|low"}`;
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -547,6 +615,11 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
   const MOOD_OPTIONS = ['Confident', 'Relaxed', 'Energetic', 'Cozy', 'Professional', 'Romantic', 'Adventurous', 'Low-key'];
   const CSV_KEY = 'atelier_csv', API_KEY_STORAGE = 'atelier_api_key';
   let wardrobe = [], nextId = 1, selectedWeather = null, selectedMood = null, pendingPhotoDataUrl = null, editingId = null;
+  const recentOutfitsByContext = new Map();
+  function contextKey(ctx) { return [ctx.weather, ctx.mood, ctx.occasion || ''].join('|'); }
+  function getRecentPickIds(ctx) { const history = recentOutfitsByContext.get(contextKey(ctx)) || []; return history.length ? history[history.length - 1] : []; }
+  function rememberOutfit(ctx, pickIds) { const k = contextKey(ctx); const h = recentOutfitsByContext.get(k) || []; h.push(pickIds); if (h.length > 3) h.shift(); recentOutfitsByContext.set(k, h); }
+
   const $ = (sel) => document.querySelector(sel);
 
   $('#today-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -608,7 +681,7 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
   });
 
   function resetForm() {
-    editingId = null; $('#item-name').value = ''; $('#item-desc').value = ''; $('#item-size').value = '';
+    editingId = null; $('#item-name').value = ''; $('#item-desc').value = ''; $('#item-cat').value = 'Top'; $('#item-pattern').value = 'Solid'; $('#item-size').value = '';
     $('#item-photo').value = ''; $('#item-color').value = '#5b6b8c'; pendingPhotoDataUrl = null;
     $('#photo-preview').style.backgroundImage = ''; $('#photo-label').textContent = 'Upload photo';
     $('#form-card-title').textContent = 'Add new piece'; $('#add-btn').textContent = 'Add to closet';
@@ -626,7 +699,7 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
           <div class="info">
             <div class="name">${escapeHtml(item.name)}</div>
             ${item.description ? `<div class="desc">${escapeHtml(item.description)}</div>` : ''}
-            <div class="meta">${escapeHtml(item.category || item.cat || '')}${item.size ? ' · ' + escapeHtml(item.size) : ''}</div>
+            <div class="meta">${escapeHtml(item.category || item.cat || '')}${item.pattern && item.pattern !== 'Solid' ? ' · ' + escapeHtml(item.pattern) : ''}${item.size ? ' · ' + escapeHtml(item.size) : ''}</div>
           </div>
           <span class="dot" style="background:${item.hex}"></span>
           <div class="item-actions">
@@ -644,7 +717,7 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
     if (editBtn) {
       const id = Number(editBtn.dataset.edit); const item = wardrobe.find((i) => i.id === id); if (!item) return;
       editingId = item.id; $('#item-name').value = item.name || ''; $('#item-desc').value = item.description || '';
-      $('#item-cat').value = item.category || item.cat || 'Top'; $('#item-size').value = item.size || ''; $('#item-color').value = item.hex || '#5b6b8c';
+      $('#item-cat').value = item.category || item.cat || 'Top'; $('#item-pattern').value = item.pattern || 'Solid'; $('#item-size').value = item.size || ''; $('#item-color').value = item.hex || '#5b6b8c';
       pendingPhotoDataUrl = item.photo || null; $('#photo-preview').style.backgroundImage = item.photo ? `url(${item.photo})` : '';
       $('#photo-label').textContent = item.photo ? 'Change photo' : 'Upload photo'; $('#form-card-title').textContent = 'Editing piece';
       $('#add-btn').textContent = 'Save changes'; $('#cancel-btn').style.display = 'block';
@@ -660,12 +733,12 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
   $('#cancel-btn').addEventListener('click', resetForm);
   $('#add-btn').addEventListener('click', () => {
     const nameEl = $('#item-name'), name = nameEl.value.trim(); if (!name) { nameEl.focus(); return; }
-    const catValue = $('#item-cat').value, descValue = $('#item-desc').value.trim(), sizeValue = $('#item-size').value.trim(), colorValue = $('#item-color').value;
+    const catValue = $('#item-cat').value, patternValue = $('#item-pattern').value, descValue = $('#item-desc').value.trim(), sizeValue = $('#item-size').value.trim(), colorValue = $('#item-color').value;
     if (editingId) {
       const item = wardrobe.find((i) => i.id === editingId);
-      if (item) { item.name = name; item.description = descValue; item.category = catValue; item.cat = catValue; item.size = sizeValue; item.hex = colorValue; if (pendingPhotoDataUrl !== null) item.photo = pendingPhotoDataUrl; }
+      if (item) { item.name = name; item.description = descValue; item.category = catValue; item.cat = catValue; item.pattern = patternValue; item.size = sizeValue; item.hex = colorValue; if (pendingPhotoDataUrl !== null) item.photo = pendingPhotoDataUrl; }
     } else {
-      wardrobe.push({ id: nextId++, name, description: descValue, category: catValue, cat: catValue, size: sizeValue, hex: colorValue, photo: pendingPhotoDataUrl || '' });
+      wardrobe.push({ id: nextId++, name, description: descValue, category: catValue, cat: catValue, pattern: patternValue, size: sizeValue, hex: colorValue, photo: pendingPhotoDataUrl || '' });
     }
     resetForm(); renderCloset(); persistWardrobe();
   });
@@ -675,7 +748,7 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
     btn.disabled = !ready; note.textContent = ready ? 'Ready when you are.' : 'Add at least 2 pieces, a weather chip, and a mood to continue.';
   }
 
-  function persistWardrobe() { try { localStorage.setItem(CSV_KEY, itemsToCsv(wardrobe)); } catch (err) {} }
+  function persistWardrobe() { try { if (wardrobe.length === 0) localStorage.removeItem(CSV_KEY); else localStorage.setItem(CSV_KEY, itemsToCsv(wardrobe)); recentOutfitsByContext.clear(); } catch (err) {} }
   function loadWardrobe() {
     try { const csv = localStorage.getItem(CSV_KEY); if (csv) { wardrobe = csvToItems(csv); nextId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0) + 1; } } catch (err) { wardrobe = []; }
     renderCloset();
@@ -688,11 +761,14 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const imported = csvToItems(ev.target.result); if (!imported.length) { alert('No rows found in CSV.'); return; }
-      if (confirm(`Import ${imported.length} item(s)? OK replaces closet, Cancel adds.`)) wardrobe = imported;
-      else { let maxId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0); imported.forEach((i) => { maxId++; i.id = maxId; wardrobe.push(i); }); }
+      if (confirm(`Import ${imported.length} item(s)? OK replaces closet, Cancel adds.`)) {
+        let maxId = 0; imported.forEach(item => { maxId++; item.id = maxId; }); wardrobe = imported;
+      } else {
+        let maxId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0); imported.forEach((i) => { maxId++; i.id = maxId; }); wardrobe = wardrobe.concat(imported);
+      }
       nextId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0) + 1; renderCloset(); persistWardrobe(); e.target.value = '';
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
   });
 
   function loadApiKey() { try { return localStorage.getItem(API_KEY_STORAGE) || ''; } catch (err) { return ''; } }
@@ -713,7 +789,14 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
     if (useAi && !loadApiKey()) { resultWrap.innerHTML = `<div class="status-line err">No API key saved yet in Settings.</div>`; return; }
     btn.disabled = true; resultWrap.innerHTML = `<div class="status-line"><span class="spinner"></span>${useAi ? 'Consulting AI…' : 'Applying styling rules…'}</div>`;
     try {
-      const parsed = useAi ? await requestAiOutfit(wardrobe, ctx, loadApiKey()) : buildRuleBasedOutfit(wardrobe, ctx);
+      let parsed;
+      if (useAi) {
+        parsed = await requestAiOutfit(wardrobe, ctx, loadApiKey());
+      } else {
+        const recentIds = getRecentPickIds(ctx);
+        parsed = buildRuleBasedOutfit(wardrobe, ctx, recentIds);
+        rememberOutfit(ctx, parsed.pick_ids);
+      }
       renderResult(parsed, useAi);
     } catch (err) {
       resultWrap.innerHTML = `<div class="status-line err">${escapeHtml(err.message || "Couldn't get suggestion.")}</div>`;
@@ -732,6 +815,7 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
     const resultWrap = $('#result-wrap');
     const picks = (parsed.pick_ids || []).map((id) => wardrobe.find((i) => String(i.id) === String(id))).filter(Boolean);
     if (!picks.length) { resultWrap.innerHTML = `<div class="status-line err">Couldn't match pieces.</div>`; return; }
+    $('#suggest-btn').textContent = 'Get another look';
     const cx = 60, cy = 60, r = 46;
     const dots = picks.map((p) => { const { x, y } = hueToXY(hexToHue(p.hex), r, cx, cy); return `<div class="dot" style="left:${x}px; top:${y}px; background:${p.hex}; position:absolute; width:16px; height:16px; border-radius:50%; border:2px solid var(--paper); box-shadow:0 0 0 1px rgba(0,0,0,0.25); transform:translate(-50%,-50%);"></div>`; }).join('');
     const conf = (parsed.confidence || 'medium').toLowerCase();
@@ -741,7 +825,7 @@ async function requestAiOutfit(wardrobe, ctx, apiKey) {
         <div class="eyebrow">${selectedWeather} · ${selectedMood}</div>
         <h3>Today's look</h3>
         <ul class="pick-list">
-          ${picks.map((p) => `<li><div class="thumb" style="background-image:url(${p.photo || ''}); background-color:${p.photo ? 'transparent' : p.hex};"></div><span class="swatch" style="background:${p.hex}"></span><span>${escapeHtml(p.name)}</span><span class="cat">${escapeHtml(p.category || p.cat || '')}</span>${p.size ? `<span class="size">${escapeHtml(p.size)}</span>` : ''}</li>`).join('')}
+          ${picks.map((p) => `<li><div class="thumb" style="background-image:url(${p.photo || ''}); background-color:${p.photo ? 'transparent' : p.hex};"></div><span class="swatch" style="background:${p.hex}"></span><span>${escapeHtml(p.name)}</span><span class="cat">${escapeHtml(p.category || p.cat || '')}${p.pattern && p.pattern !== 'Solid' ? ' (' + escapeHtml(p.pattern) + ')' : ''}</span>${p.size ? `<span class="size">${escapeHtml(p.size)}</span>` : ''}</li>`).join('')}
         </ul>
         <div class="reasoning">
           <p><span class="label">Color story</span>${escapeHtml(parsed.color_story || '')}</p>

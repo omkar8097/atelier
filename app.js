@@ -11,6 +11,26 @@
   let pendingPhotoDataUrl = null;
   let editingId = null;
 
+  const recentOutfitsByContext = new Map();
+
+  function contextKey(ctx) {
+    return [ctx.weather, ctx.mood, ctx.occasion || ''].join('|');
+  }
+
+  function getRecentPickIds(ctx) {
+    const key = contextKey(ctx);
+    const history = recentOutfitsByContext.get(key) || [];
+    return history.length ? history[history.length - 1] : [];
+  }
+
+  function rememberOutfit(ctx, pickIds) {
+    const key = contextKey(ctx);
+    const history = recentOutfitsByContext.get(key) || [];
+    history.push(pickIds);
+    if (history.length > 3) history.shift();
+    recentOutfitsByContext.set(key, history);
+  }
+
   const $ = (sel) => document.querySelector(sel);
 
   // ---------- init ----------
@@ -94,6 +114,8 @@
     editingId = null;
     $('#item-name').value = '';
     $('#item-desc').value = '';
+    $('#item-cat').value = 'Top';
+    $('#item-pattern').value = 'Solid';
     $('#item-size').value = '';
     $('#item-photo').value = '';
     $('#item-color').value = '#5b6b8c';
@@ -116,7 +138,7 @@
           <div class="info">
             <div class="name">${escapeHtml(item.name)}</div>
             ${item.description ? `<div class="desc">${escapeHtml(item.description)}</div>` : ''}
-            <div class="meta">${escapeHtml(item.category || item.cat || '')}${item.size ? ' · ' + escapeHtml(item.size) : ''}</div>
+            <div class="meta">${escapeHtml(item.category || item.cat || '')}${item.pattern && item.pattern !== 'Solid' ? ' · ' + escapeHtml(item.pattern) : ''}${item.size ? ' · ' + escapeHtml(item.size) : ''}</div>
           </div>
           <span class="dot" style="background:${item.hex}"></span>
           <div class="item-actions">
@@ -139,6 +161,7 @@
       $('#item-name').value = item.name || '';
       $('#item-desc').value = item.description || '';
       $('#item-cat').value = item.category || item.cat || 'Top';
+      $('#item-pattern').value = item.pattern || 'Solid';
       $('#item-size').value = item.size || '';
       $('#item-color').value = item.hex || '#5b6b8c';
       pendingPhotoDataUrl = item.photo || null;
@@ -171,6 +194,7 @@
     if (!name) { nameEl.focus(); return; }
 
     const catValue = $('#item-cat').value;
+    const patternValue = $('#item-pattern').value;
     const descValue = $('#item-desc').value.trim();
     const sizeValue = $('#item-size').value.trim();
     const colorValue = $('#item-color').value;
@@ -182,6 +206,7 @@
         item.description = descValue;
         item.category = catValue;
         item.cat = catValue;
+        item.pattern = patternValue;
         item.size = sizeValue;
         item.hex = colorValue;
         if (pendingPhotoDataUrl !== null) {
@@ -195,6 +220,7 @@
         description: descValue,
         category: catValue,
         cat: catValue,
+        pattern: patternValue,
         size: sizeValue,
         hex: colorValue,
         photo: pendingPhotoDataUrl || ''
@@ -215,8 +241,16 @@
 
   // ---------- CSV persistence (local "database") ----------
   function persistWardrobe() {
-    try { localStorage.setItem(CSV_KEY, itemsToCsv(wardrobe)); }
-    catch (err) { console.error('Local save failed', err); }
+    try {
+      if (wardrobe.length === 0) {
+        localStorage.removeItem(CSV_KEY);
+      } else {
+        localStorage.setItem(CSV_KEY, itemsToCsv(wardrobe));
+      }
+      recentOutfitsByContext.clear();
+    } catch (err) {
+      console.error('Local save failed', err);
+    }
   }
 
   function loadWardrobe() {
@@ -247,17 +281,26 @@
       }
       const replace = confirm(`Import ${imported.length} item(s)? OK replaces your current closet, Cancel adds them to it.`);
       if (replace) {
+        let maxId = 0;
+        imported.forEach((item) => {
+          maxId++;
+          item.id = maxId;
+        });
         wardrobe = imported;
       } else {
         let maxId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0);
-        imported.forEach((i) => { maxId++; i.id = maxId; wardrobe.push(i); });
+        imported.forEach((i) => {
+          maxId++;
+          i.id = maxId;
+        });
+        wardrobe = wardrobe.concat(imported);
       }
       nextId = wardrobe.reduce((m, i) => Math.max(m, i.id), 0) + 1;
       renderCloset();
       persistWardrobe();
       e.target.value = '';
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
   });
 
   // ---------- settings / API key ----------
@@ -322,7 +365,9 @@
       if (useAi) {
         parsed = await requestAiOutfit(wardrobe, ctx, loadApiKey());
       } else {
-        parsed = buildRuleBasedOutfit(wardrobe, ctx);
+        const recentIds = getRecentPickIds(ctx);
+        parsed = buildRuleBasedOutfit(wardrobe, ctx, recentIds);
+        rememberOutfit(ctx, parsed.pick_ids);
       }
       renderResult(parsed, useAi);
     } catch (err) {
@@ -360,6 +405,8 @@
       return;
     }
 
+    $('#suggest-btn').textContent = 'Get another look';
+
     const cx = 60, cy = 60, r = 46;
     const dots = picks.map((p) => {
       const { x, y } = hueToXY(hexToHue(p.hex), r, cx, cy);
@@ -379,7 +426,7 @@
               <div class="thumb" style="background-image:url(${p.photo || ''}); background-color:${p.photo ? 'transparent' : p.hex};"></div>
               <span class="swatch" style="background:${p.hex}"></span>
               <span>${escapeHtml(p.name)}</span>
-              <span class="cat">${escapeHtml(p.category || p.cat || '')}</span>
+              <span class="cat">${escapeHtml(p.category || p.cat || '')}${p.pattern && p.pattern !== 'Solid' ? ' (' + escapeHtml(p.pattern) + ')' : ''}</span>
               ${p.size ? `<span class="size">${escapeHtml(p.size)}</span>` : ''}
             </li>
           `).join('')}

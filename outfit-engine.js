@@ -81,41 +81,94 @@ const HOT_WEATHER = ['Hot', 'Sunny', 'Humid'];
 
 // ---------- rule-based outfit builder ----------
 
-function bestOfCategory(items, category, mood, baseHslList) {
-  const pool = items.filter((i) => (i.category || i.cat) === category);
-  if (pool.length === 0) return null;
-  let best = null, bestScore = -1;
-  pool.forEach((item) => {
+const BUSY_PATTERNS = ['Striped', 'Plaid', 'Floral'];
+const MAIN_GARMENTS = ['Top', 'Bottom', 'Dress', 'Outerwear'];
+
+function isBusyPattern(pattern) {
+  return BUSY_PATTERNS.includes(pattern);
+}
+
+// Returns the top N scored candidates for a category, considering color, mood, and pattern SOP limits.
+function shortlistOfCategory(items, category, mood, baseHslList, currentPicks = [], topN = 3) {
+  let pool = items.filter((i) => (i.category || i.cat) === category);
+  if (pool.length === 0) return [];
+
+  // SOP Step 6 Pattern Rule: Max ONE busy pattern among main garments (Top, Bottom, Dress, Outerwear)
+  if (MAIN_GARMENTS.includes(category)) {
+    const hasBusyMain = currentPicks.some(
+      (p) => MAIN_GARMENTS.includes(p.category || p.cat) && isBusyPattern(p.pattern)
+    );
+    if (hasBusyMain) {
+      const nonBusyPool = pool.filter((i) => !isBusyPattern(i.pattern));
+      if (nonBusyPool.length > 0) {
+        pool = nonBusyPool;
+      }
+    }
+  }
+
+  const scored = pool.map((item) => {
     const hsl = hexToHsl(item.hex || '#888888');
     const mScore = moodFitScore(hsl, mood);
     const cScore = baseHslList.length ? groupHarmony([...baseHslList, hsl]) : 1;
-    const score = mScore * 0.4 + cScore * 0.6;
-    if (score > bestScore) { bestScore = score; best = item; }
-  });
-  return best;
+    return { item, score: mScore * 0.4 + cScore * 0.6 };
+  }).sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, Math.min(topN, scored.length));
 }
 
-function buildRuleBasedOutfit(wardrobe, ctx) {
+// Weighted-random pick from a shortlist, biased toward higher scores (score^3) and avoiding recent pick IDs.
+function weightedPick(shortlist, excludeIds = []) {
+  if (shortlist.length === 0) return null;
+  let pool = shortlist.filter((c) => !excludeIds.includes(String(c.item.id)));
+  if (pool.length === 0) pool = shortlist; // fallback if exclusion leaves pool empty
+
+  const weights = pool.map((c) => Math.pow(Math.max(c.score, 0.01), 3));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < pool.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return pool[i].item;
+  }
+  return pool[pool.length - 1].item;
+}
+
+function bestOfCategory(items, category, mood, baseHslList, excludeIds = [], currentPicks = []) {
+  const shortlist = shortlistOfCategory(items, category, mood, baseHslList, currentPicks);
+  return weightedPick(shortlist, excludeIds);
+}
+
+function buildRuleBasedOutfit(wardrobe, ctx, recentPickIds = []) {
   const { weather, mood } = ctx;
   const picks = [];
   const hslList = [];
+  const exclude = (recentPickIds || []).map(String);
 
-  const dressOption = bestOfCategory(wardrobe, 'Dress', mood, []);
-  const topOption = bestOfCategory(wardrobe, 'Top', mood, []);
+  const dressOption = bestOfCategory(wardrobe, 'Dress', mood, [], exclude, picks);
+  const topOption = bestOfCategory(wardrobe, 'Top', mood, [], exclude, picks);
   const bottomOption = topOption
-    ? bestOfCategory(wardrobe, 'Bottom', mood, [hexToHsl(topOption.hex || '#888')])
-    : bestOfCategory(wardrobe, 'Bottom', mood, []);
+    ? bestOfCategory(wardrobe, 'Bottom', mood, [hexToHsl(topOption.hex || '#888')], exclude, topOption ? [topOption] : [])
+    : bestOfCategory(wardrobe, 'Bottom', mood, [], exclude, []);
 
-  // choose dress-based vs top+bottom-based, whichever scores higher on average
   let base = [];
   if (dressOption && (!topOption || !bottomOption)) {
     base = [dressOption];
   } else if (dressOption && topOption && bottomOption) {
     const dressScore = moodFitScore(hexToHsl(dressOption.hex || '#888'), mood);
     const comboHsl = [hexToHsl(topOption.hex || '#888'), hexToHsl(bottomOption.hex || '#888')];
-    const comboScore = (moodFitScore(comboHsl[0], mood) + moodFitScore(comboHsl[1], mood)) / 2
-      * 0.5 + groupHarmony(comboHsl) * 0.5;
-    base = dressScore >= comboScore ? [dressOption] : [topOption, bottomOption];
+    const comboScore = (moodFitScore(comboHsl[0], mood) + moodFitScore(comboHsl[1], mood)) / 2 * 0.5
+      + groupHarmony(comboHsl) * 0.5;
+
+    // Probabilistic selection if scores are within ~15%
+    const closeCall = Math.abs(dressScore - comboScore) < 0.15 * Math.max(dressScore, comboScore);
+    if (closeCall) {
+      const dressWeight = Math.pow(Math.max(dressScore, 0.01), 3);
+      const comboWeight = Math.pow(Math.max(comboScore, 0.01), 3);
+      base = Math.random() * (dressWeight + comboWeight) < dressWeight
+        ? [dressOption]
+        : [topOption, bottomOption];
+    } else {
+      base = dressScore >= comboScore ? [dressOption] : [topOption, bottomOption];
+    }
   } else if (topOption && bottomOption) {
     base = [topOption, bottomOption];
   } else if (dressOption) {
@@ -132,7 +185,7 @@ function buildRuleBasedOutfit(wardrobe, ctx) {
   const needsOuterwear = COLD_WEATHER.includes(weather);
   const avoidOuterwear = HOT_WEATHER.includes(weather);
   if (!avoidOuterwear) {
-    const outer = bestOfCategory(wardrobe, 'Outerwear', mood, hslList);
+    const outer = bestOfCategory(wardrobe, 'Outerwear', mood, hslList, exclude, picks);
     if (outer && (needsOuterwear || groupHarmony([...hslList, hexToHsl(outer.hex || '#888')]) > 0.75)) {
       picks.push(outer);
       hslList.push(hexToHsl(outer.hex || '#888'));
@@ -140,12 +193,12 @@ function buildRuleBasedOutfit(wardrobe, ctx) {
   }
 
   // shoes
-  const shoes = bestOfCategory(wardrobe, 'Shoes', mood, hslList);
+  const shoes = bestOfCategory(wardrobe, 'Shoes', mood, hslList, exclude, picks);
   if (shoes) { picks.push(shoes); hslList.push(hexToHsl(shoes.hex || '#888')); }
 
-  // accessory — only if it lifts the harmony score
+  // accessory — only if it doesn't reduce running harmony by > 0.05
   const beforeHarmony = groupHarmony(hslList);
-  const accessory = bestOfCategory(wardrobe, 'Accessory', mood, hslList);
+  const accessory = bestOfCategory(wardrobe, 'Accessory', mood, hslList, exclude, picks);
   if (accessory) {
     const afterHarmony = groupHarmony([...hslList, hexToHsl(accessory.hex || '#888')]);
     if (afterHarmony >= beforeHarmony - 0.05) {
