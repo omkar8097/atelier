@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#20261F">
+<title>Atelier</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <h1>Atelier</h1>
+    <div class="date" id="today-date"></div>
+  </header>
+
+  <!-- CLOSET VIEW -->
+  <section class="view active" id="view-closet">
+    <h2 class="section-title">Your closet</h2>
+    <p class="hint">Photo, description, category, and size for each piece. Everything lives in a local CSV — export it any time.</p>
+
+    <div class="card">
+      <label class="field-label">Name</label>
+      <input type="text" id="item-name" placeholder="e.g. Navy chinos" maxlength="40">
+
+      <label class="field-label">Description</label>
+      <textarea id="item-desc" placeholder="e.g. Slim fit, cotton twill, slightly cropped" rows="2"></textarea>
+
+      <label class="field-label">Category</label>
+      <select id="item-cat">
+        <option value="Top">Top</option>
+        <option value="Bottom">Bottom</option>
+        <option value="Dress">Dress</option>
+        <option value="Outerwear">Outerwear</option>
+        <option value="Shoes">Shoes</option>
+        <option value="Accessory">Accessory</option>
+      </select>
+
+      <label class="field-label">Size (optional)</label>
+      <input type="text" id="item-size" placeholder="M / 32 / 9 UK">
+
+      <div class="photo-row">
+        <div class="photo-preview" id="photo-preview"></div>
+        <div class="photo-controls">
+          <label class="filelabel" for="item-photo" id="photo-label">Upload photo</label>
+          <input type="file" id="item-photo" accept="image/*" capture="environment">
+          <div class="color-row">
+            <span>Color</span>
+            <input type="color" id="item-color" value="#5b6b8c">
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="add-btn">Add to closet</button>
+    </div>
+
+    <div class="closet-list" id="closet-list"></div>
+
+    <div class="card" style="margin-top:16px;">
+      <label class="field-label">CSV database</label>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="export-btn">Export .csv</button>
+        <button class="btn btn-ghost" id="import-btn">Import .csv</button>
+      </div>
+      <input type="file" id="import-file" accept=".csv,text/csv" style="display:none;">
+    </div>
+  </section>
+
+  <!-- TODAY VIEW -->
+  <section class="view" id="view-today">
+    <h2 class="section-title">Today's brief</h2>
+    <p class="hint">Set the context, then decide with AI or with the app's own styling rules.</p>
+
+    <div class="card">
+      <label class="field-label">Weather</label>
+      <div class="chipset" id="weather-chips"></div>
+      <label class="field-label">Temperature (optional, °C)</label>
+      <input type="text" inputmode="numeric" id="temp-input" placeholder="—">
+
+      <label class="field-label">Mood</label>
+      <div class="chipset" id="mood-chips"></div>
+
+      <label class="field-label">Occasion (optional)</label>
+      <textarea id="occasion-input" placeholder="e.g. client meeting, casual weekend…" rows="1"></textarea>
+
+      <div class="toggle-row">
+        <div class="label-block">
+          <span class="t-title">Use AI</span>
+          <span class="t-sub" id="ai-sub">Calls Claude for the pick</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="ai-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button class="btn btn-light" id="suggest-btn" disabled>Get my look</button>
+      <div class="status-line" id="cta-note">Add at least 2 pieces, a weather chip, and a mood to continue.</div>
+    </div>
+
+    <div id="result-wrap"></div>
+  </section>
+
+  <!-- SETTINGS VIEW -->
+  <section class="view" id="view-settings">
+    <h2 class="section-title">Settings</h2>
+
+    <div class="settings-note">
+      Your Anthropic API key is stored only in this browser's local storage and is sent only to
+      api.anthropic.com when you request an AI outfit. Because this is a browser app, anyone with
+      access to this device/browser could read the key from storage — fine for personal use, not
+      something to share or publish with your key saved in it.
+    </div>
+
+    <div class="card">
+      <label class="field-label">Anthropic API key</label>
+      <input type="text" id="api-key-input" placeholder="sk-ant-...">
+      <button class="btn btn-primary" id="save-key-btn">Save key</button>
+      <div class="status-line" id="key-status"></div>
+    </div>
+
+    <div class="card">
+      <label class="field-label">Data</label>
+      <p class="hint" style="margin-bottom:10px;">Your closet is stored as CSV text in this browser. Clearing it removes every item and photo from this device.</p>
+      <button class="btn btn-ghost" id="clear-data-btn">Clear all closet data</button>
+    </div>
+  </section>
+
+  <nav class="tabbar">
+    <button class="tab-btn active" data-view="closet"><span>Closet</span><span class="dot-ind"></span></button>
+    <button class="tab-btn" data-view="today"><span>Today</span><span class="dot-ind"></span></button>
+    <button class="tab-btn" data-view="settings"><span>Settings</span><span class="dot-ind"></span></button>
+  </nav>
+
+</div>
+
+<script src="csv-utils.js"></script>
+<script src="outfit-engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
