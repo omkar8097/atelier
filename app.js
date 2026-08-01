@@ -4,6 +4,7 @@
   const CSV_KEY = 'poshak_csv';
   const API_KEY_STORAGE = 'poshak_api_key';
   const THEME_KEY = 'poshak_theme';
+  const LOGO_STYLE_KEY = 'poshak_logo_style';
 
   const CATEGORIES = [
     { name: 'Casual Shirt', role: 'Top', color: 'var(--accent-blue)' },
@@ -103,6 +104,33 @@
     applyTheme(currentTheme);
   });
 
+  // ---------- logo style preset ----------
+  function applyLogoStyle(style) {
+    document.documentElement.setAttribute('data-logo-style', style || 'royal');
+    document.querySelectorAll('.logo-chip').forEach((c) => {
+      c.classList.toggle('sel', c.dataset.logoStyle === (style || 'royal'));
+    });
+  }
+
+  function loadLogoStyle() {
+    try { return localStorage.getItem(LOGO_STYLE_KEY) || 'royal'; }
+    catch (err) { return 'royal'; }
+  }
+
+  let currentLogoStyle = loadLogoStyle();
+  applyLogoStyle(currentLogoStyle);
+
+  const logoChips = $('#logo-style-chips');
+  if (logoChips) {
+    logoChips.addEventListener('click', (e) => {
+      const btn = e.target.closest('.logo-chip');
+      if (!btn) return;
+      currentLogoStyle = btn.dataset.logoStyle;
+      try { localStorage.setItem(LOGO_STYLE_KEY, currentLogoStyle); } catch (err) {}
+      applyLogoStyle(currentLogoStyle);
+    });
+  }
+
   // ---------- init ----------
   $('#today-date').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -143,6 +171,7 @@
       $('#view-' + viewName).classList.add('active');
       const fab = $('#add-fab');
       if (fab) fab.style.display = viewName === 'closet' ? 'flex' : 'none';
+      if (viewName === 'review') renderReview();
     });
   });
 
@@ -630,6 +659,109 @@
         </div>
         <span class="confidence" style="background:${confColor};color:#ffffff;">Confidence: ${conf} (${overallScore}%)</span>
         <div style="position:relative;width:120px;height:120px;border-radius:50%;background:conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);opacity:0.9;margin:16px auto 0;">${dots}</div>
+      </div>
+    `;
+  }
+
+  // ---------- closet review ----------
+  const aiReviewToggle = $('#ai-review-toggle');
+  if (aiReviewToggle) {
+    aiReviewToggle.addEventListener('change', (e) => {
+      $('#ai-review-sub').textContent = e.target.checked
+        ? 'Analyzes wardrobe via Claude AI'
+        : 'Uses built-in closet analysis rules';
+      renderReview();
+    });
+  }
+
+  async function renderReview() {
+    const wrap = $('#review-wrap');
+    if (!wrap) return;
+
+    if (wardrobe.length === 0) {
+      wrap.innerHTML = `<div class="empty-note" style="margin-top:20px;">Your closet is empty. Add your first pieces using the + button to unlock closet review insights.</div>`;
+      return;
+    }
+
+    const useAi = $('#ai-review-toggle') ? $('#ai-review-toggle').checked : false;
+    if (useAi) {
+      const apiKey = loadApiKey();
+      if (!apiKey) {
+        wrap.innerHTML = `<div class="status-line err" style="margin-top:16px;">No API key saved yet — add one in Settings, or turn AI off to use built-in rules.</div>`;
+        return;
+      }
+    }
+
+    wrap.innerHTML = `<div class="status-line" style="margin-top:16px;"><span class="spinner"></span>${useAi ? 'Consulting AI for closet review…' : 'Analyzing wardrobe readiness…'}</div>`;
+
+    try {
+      let data;
+      if (useAi) {
+        data = await requestAiClosetReview(wardrobe, loadApiKey());
+      } else {
+        data = analyzeClosetReadiness(wardrobe);
+      }
+      displayReviewData(data, useAi);
+    } catch (err) {
+      wrap.innerHTML = `<div class="status-line err" style="margin-top:16px;">${escapeHtml(err.message || "Couldn't review closet.")}</div>`;
+    }
+  }
+
+  function displayReviewData(data, useAi) {
+    const wrap = $('#review-wrap');
+    const scenarios = data.scenarios || [];
+    const missingRecs = data.missing_recommendations || [];
+
+    wrap.innerHTML = `
+      <div class="result-card">
+        <span class="engine-tag">${useAi ? 'AI Closet Review' : 'Rule-Based Review'}</span>
+        <h3>Wardrobe Overview</h3>
+        <p style="font-size:13px;line-height:1.6;color:var(--text-on-surface);margin-bottom:16px;">${escapeHtml(data.inventory_summary || '')}</p>
+
+        <h4 style="font-family:'Fraunces',serif;font-size:16px;margin:16px 0 10px;">Scenario & Occasion Readiness</h4>
+        ${scenarios.map((s) => {
+          const score = s.score || 0;
+          const scoreColor = score >= 80 ? 'var(--success)' : (score >= 50 ? 'var(--accent-amber)' : 'var(--danger)');
+          return `
+            <div class="scenario-card">
+              <div class="scenario-card-header">
+                <span class="scenario-card-title">${escapeHtml(s.name)}</span>
+                <span class="scenario-score-badge" style="color:${scoreColor}">${score}%</span>
+              </div>
+              <div class="scenario-bar-bg">
+                <div class="scenario-bar-fill" style="width:${score}%;background:${scoreColor};"></div>
+              </div>
+              <div class="scenario-desc">${escapeHtml(s.description)}</div>
+            </div>
+          `;
+        }).join('')}
+
+        ${missingRecs.length > 0 ? `
+          <h4 style="font-family:'Fraunces',serif;font-size:16px;margin:20px 0 10px;">Recommended Additions & Colors</h4>
+          ${missingRecs.map((r) => `
+            <div class="rec-card">
+              <div class="rec-title">${escapeHtml(r.item_type)}</div>
+              <div class="rec-reason">${escapeHtml(r.reason)}</div>
+              <div class="rec-items-label">Suggested Items:</div>
+              <div>
+                ${(r.suggested_items || []).map((i) => `<span class="rec-item-pill">${escapeHtml(i)}</span>`).join('')}
+              </div>
+              ${(r.matching_colors && r.matching_colors.length > 0) ? `
+                <div class="rec-items-label" style="margin-top:10px;">Matching Color Recommendations:</div>
+                <div class="rec-swatch-group">
+                  ${r.matching_colors.map((c) => `
+                    <div class="swatch-chip" title="${escapeHtml(c.reason || '')}">
+                      <span class="dot" style="background:${c.hex}"></span>
+                      <span>${escapeHtml(c.name)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        ` : `
+          <div class="status-line" style="margin-top:14px;color:var(--success);">Your closet covers all essential categories cleanly!</div>
+        `}
       </div>
     `;
   }

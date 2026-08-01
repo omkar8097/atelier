@@ -1,4 +1,4 @@
-const CACHE_NAME = 'poshak-v12';
+const CACHE_NAME = 'poshak-v16';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -28,34 +28,25 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Never intercept or cache Anthropic API calls
-  if (event.request.url.includes('api.anthropic.com')) {
-    return;
-  }
+  if (event.request.url.includes('api.anthropic.com')) return;
 
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then((cached) => {
-      if (cached) {
-        return cached;
-      }
-
-      // If not in cache, try network and catch network errors gracefully
-      return fetch(event.request)
-        .then((response) => {
-          // Cache external fonts if fetched online
-          if (response.ok && (event.request.url.includes('fonts.googleapis.com') || event.request.url.includes('fonts.gstatic.com'))) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => {
-          // Offline fallback for navigation requests
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse.ok && event.request.method === 'GET') {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request, { ignoreSearch: true }).then((cached) => {
+          if (cached) return cached;
           if (event.request.mode === 'navigate') {
             return caches.match('./index.html') || caches.match('./');
           }
           return new Response('', { status: 503, statusText: 'Offline' });
         });
-    })
+      })
   );
 });

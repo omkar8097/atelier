@@ -16,7 +16,13 @@
 <div id="app">
 
   <header class="top">
-    <h1>Poshak</h1>
+    <div class="brand-wrap">
+      <img src="icons/logo.png" alt="Poshak Logo" class="header-logo-icon" id="app-logo-icon">
+      <div class="title-block">
+        <h1>Poshak</h1>
+        <span class="sub-brand">पोशाक · Attire Stylist</span>
+      </div>
+    </div>
     <div class="header-right">
       <div class="date" id="today-date"></div>
       <label class="theme-switch" title="Toggle theme">
@@ -35,15 +41,6 @@
     <p class="hint">Photo, description, category, and size for each piece. Everything lives in a local CSV — export it any time.</p>
 
     <div class="closet-list" id="closet-list"></div>
-
-    <div class="card" style="margin-top:16px;">
-      <label class="field-label">CSV database</label>
-      <div class="btn-row">
-        <button class="btn btn-ghost" id="export-btn">Export .csv</button>
-        <button class="btn btn-ghost" id="import-btn">Import .csv</button>
-      </div>
-      <input type="file" id="import-file" accept=".csv,text/csv" style="display:none;">
-    </div>
   </section>
 
   <!-- TODAY VIEW -->
@@ -81,6 +78,27 @@
     <div id="result-wrap"></div>
   </section>
 
+  <!-- REVIEW CLOSET VIEW -->
+  <section class="view" id="view-review">
+    <h2 class="section-title">Review closet</h2>
+    <p class="hint">Analyze your wardrobe readiness across scenarios, detect missing gaps, and get smart shopping recommendations with matching colors.</p>
+
+    <div class="card">
+      <div class="toggle-row" style="margin-bottom:0;">
+        <div class="label-block">
+          <span class="t-title">Use AI Review</span>
+          <span class="t-sub" id="ai-review-sub">Analyzes wardrobe via Claude AI</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="ai-review-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div id="review-wrap"></div>
+  </section>
+
   <!-- SETTINGS VIEW -->
   <section class="view" id="view-settings">
     <h2 class="section-title">Settings</h2>
@@ -100,9 +118,29 @@
     </div>
 
     <div class="card">
+      <label class="field-label">CSV database</label>
+      <p class="hint" style="margin-bottom:10px;">Export your wardrobe as a CSV backup file or import existing CSV data anytime.</p>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="export-btn">Export .csv</button>
+        <button class="btn btn-ghost" id="import-btn">Import .csv</button>
+      </div>
+      <input type="file" id="import-file" accept=".csv,text/csv" style="display:none;">
+    </div>
+
+    <div class="card">
       <label class="field-label">Data</label>
       <p class="hint" style="margin-bottom:10px;">Your closet is stored as CSV text in this browser. Clearing it removes every item and photo from this device.</p>
       <button class="btn btn-ghost" id="clear-data-btn">Clear all closet data</button>
+    </div>
+
+    <div class="card">
+      <label class="field-label">Logo Style Preset</label>
+      <p class="hint" style="margin-bottom:10px;">Select your preferred visual style for the brand logo emblem.</p>
+      <div class="chipset" id="logo-style-chips">
+        <button type="button" class="chip logo-chip sel" data-logo-style="royal">Royal Emerald & Gold</button>
+        <button type="button" class="chip logo-chip" data-logo-style="minimal">Modern Minimal</button>
+        <button type="button" class="chip logo-chip" data-logo-style="heritage">Desi Heritage Arch</button>
+      </div>
     </div>
 
     <div class="card">
@@ -170,6 +208,7 @@
   <nav class="tabbar">
     <button class="tab-btn active" data-view="closet"><span>Closet</span><span class="dot-ind"></span></button>
     <button class="tab-btn" data-view="today"><span>Today</span><span class="dot-ind"></span></button>
+    <button class="tab-btn" data-view="review"><span>Review</span><span class="dot-ind"></span></button>
     <button class="tab-btn" data-view="settings"><span>Settings</span><span class="dot-ind"></span></button>
   </nav>
 
