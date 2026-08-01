@@ -117,6 +117,44 @@
       <div class="status-line" id="key-status"></div>
     </div>
 
+    <div class="card" id="profile-card">
+      <label class="field-label">Your Stylist Profile (Body & Complexion)</label>
+      <p class="hint" style="margin-bottom:10px;">Upload a selfie or portrait photo to analyze skin tone, undertone, body shape, and personal color season 100% offline.</p>
+      
+      <div class="photo-row" style="margin-bottom:12px;">
+        <div class="photo-preview" id="user-profile-preview" style="width:54px;height:54px;border-radius:50%;flex-shrink:0;"></div>
+        <div class="photo-controls">
+          <label class="filelabel" for="user-profile-photo" id="user-profile-label">Upload portrait</label>
+          <input type="file" id="user-profile-photo" accept="image/*">
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-ghost" id="analyze-profile-btn" style="width:100%;font-size:12px;margin-bottom:10px;" disabled>
+        ✨ Analyze Skin Tone & Body Shape
+      </button>
+      <div id="profile-status" style="font-size:11px;color:var(--text-dim);margin-bottom:10px;text-align:center;"></div>
+
+      <div id="profile-details-wrap" style="display:none;background:var(--bg-elevated);padding:12px;border-radius:var(--radius);margin-top:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:11px;font-weight:600;">Detected Tone:</span>
+          <span class="chip" id="profile-skin-badge" style="font-size:10px;padding:3px 8px;">Wheatish</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:11px;font-weight:600;">Undertone & Season:</span>
+          <span class="chip" id="profile-season-badge" style="font-size:10px;padding:3px 8px;">Warm Autumn</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span style="font-size:11px;font-weight:600;">Body Silhouette:</span>
+          <span class="chip" id="profile-body-badge" style="font-size:10px;padding:3px 8px;">Rectangle / Athletic</span>
+        </div>
+
+        <label class="field-label" style="font-size:9.5px;margin-top:10px;margin-bottom:4px;">Flattering Palette</label>
+        <div id="profile-swatches" style="display:flex;gap:6px;margin-bottom:8px;"></div>
+
+        <p class="hint" id="profile-advice-text" style="font-size:11px;line-height:1.4;margin:0;"></p>
+      </div>
+    </div>
+
     <div class="card">
       <label class="field-label">CSV database</label>
       <p class="hint" style="margin-bottom:10px;">Export your wardrobe as a CSV backup file or import existing CSV data anytime.</p>

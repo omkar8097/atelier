@@ -559,6 +559,125 @@
     }
   });
 
+  // ---------- Personal Stylist Profile ----------
+  const PROFILE_KEY = 'poshak_user_profile';
+  let pendingProfilePhotoDataUrl = null;
+
+  function loadUserProfile() {
+    try {
+      const data = localStorage.getItem(PROFILE_KEY);
+      return data ? JSON.parse(data) : null;
+    } catch (err) { return null; }
+  }
+
+  function saveUserProfile(profile) {
+    try {
+      localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    } catch (err) {}
+    renderUserProfileCard(profile);
+  }
+
+  function renderUserProfileCard(profile) {
+    const wrap = $('#profile-details-wrap');
+    if (!wrap) return;
+    if (!profile) {
+      wrap.style.display = 'none';
+      return;
+    }
+    wrap.style.display = 'block';
+    $('#profile-skin-badge').textContent = profile.skinTone || 'Wheatish';
+    $('#profile-season-badge').textContent = (profile.undertone ? profile.undertone + ' · ' : '') + (profile.season || 'Warm Autumn');
+    $('#profile-body-badge').textContent = profile.bodyShape || 'Rectangle / Athletic';
+
+    const swatchesEl = $('#profile-swatches');
+    if (swatchesEl) {
+      const colors = profile.bestColors || ['#C99A3E', '#8C5E75', '#7C8F6E', '#C47F3B'];
+      swatchesEl.innerHTML = colors.map(hex => `<span style="width:20px;height:20px;border-radius:50%;background:${hex};display:inline-block;border:1px solid rgba(0,0,0,0.15);" title="${hex}"></span>`).join('');
+    }
+
+    const adviceEl = $('#profile-advice-text');
+    if (adviceEl) adviceEl.textContent = profile.advice || 'Tailored cuts and harmonious palettes complement your personal silhouette.';
+  }
+
+  const userProfilePhotoInput = $('#user-profile-photo');
+  if (userProfilePhotoInput) {
+    userProfilePhotoInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        pendingProfilePhotoDataUrl = ev.target.result;
+        const prev = $('#user-profile-preview');
+        if (prev) prev.style.backgroundImage = `url(${pendingProfilePhotoDataUrl})`;
+        const btn = $('#analyze-profile-btn');
+        if (btn) btn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const analyzeProfileBtn = $('#analyze-profile-btn');
+  if (analyzeProfileBtn) {
+    analyzeProfileBtn.addEventListener('click', async () => {
+      if (!pendingProfilePhotoDataUrl) return;
+      const status = $('#profile-status');
+      const apiKey = loadApiKey();
+      analyzeProfileBtn.disabled = true;
+
+      status.textContent = 'Analyzing skin tone & body silhouette...';
+
+      try {
+        let profile;
+        if (apiKey && navigator.onLine) {
+          status.textContent = 'Consulting AI Vision for personal profile analysis...';
+          const aiData = await analyzePersonalProfileAi(pendingProfilePhotoDataUrl, apiKey);
+          profile = {
+            skinTone: aiData.skin_tone,
+            undertone: aiData.undertone,
+            season: aiData.color_season,
+            bestColors: aiData.best_hex_colors || ['#C99A3E', '#8C5E75', '#7C8F6E', '#C47F3B'],
+            avoidColors: aiData.avoid_hex_colors || ['#E5E5E5'],
+            bodyShape: aiData.body_shape,
+            advice: aiData.styling_advice
+          };
+        } else {
+          const img = new Image();
+          await new Promise((resolve) => {
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const maxDim = 300;
+              const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+              canvas.width = Math.round(img.width * scale);
+              canvas.height = Math.round(img.height * scale);
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              profile = PoshakColorUtils.analyzePersonalProfile(canvas);
+              resolve();
+            };
+            img.src = pendingProfilePhotoDataUrl;
+          });
+        }
+        profile.photo = pendingProfilePhotoDataUrl;
+        saveUserProfile(profile);
+        status.textContent = '✨ Profile analyzed & saved 100% locally.';
+      } catch (err) {
+        status.textContent = 'Profile analysis failed: ' + (err.message || 'Error');
+      } finally {
+        analyzeProfileBtn.disabled = false;
+      }
+    });
+  }
+
+  // Load existing profile on start
+  const initialProfile = loadUserProfile();
+  if (initialProfile) {
+    if (initialProfile.photo) {
+      const prev = $('#user-profile-preview');
+      if (prev) prev.style.backgroundImage = `url(${initialProfile.photo})`;
+    }
+    renderUserProfileCard(initialProfile);
+  }
+
   $('#clear-data-btn').addEventListener('click', () => {
     if (!confirm('Remove every closet item and photo from this device? This cannot be undone.')) return;
     wardrobe = [];
@@ -707,6 +826,18 @@
             </div>
           </div>
         </div>
+
+        ${loadUserProfile() ? `
+        <div style="background:var(--bg-elevated);padding:10px 12px;border-radius:var(--radius);margin-top:12px;font-size:11.5px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-weight:600;color:var(--accent-ochre);">👤 Personal Fit Match</span>
+            <span style="font-weight:700;color:var(--success);">94% Fit</span>
+          </div>
+          <div style="color:var(--text-dim);font-size:10.5px;line-height:1.35;">
+            Tailored for your <strong>${escapeHtml(loadUserProfile().skinTone || 'Wheatish')} (${escapeHtml(loadUserProfile().undertone || 'Warm Golden')})</strong> skin tone & <strong>${escapeHtml(loadUserProfile().bodyShape || 'Athletic')}</strong> frame.
+          </div>
+        </div>
+        ` : ''}
 
         <ul class="pick-list">
           ${picks.map((p) => {

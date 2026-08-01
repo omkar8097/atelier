@@ -829,6 +829,59 @@ Return ONLY valid JSON with these exact keys:
   return JSON.parse(text.replace(/```json|```/g, '').trim());
 }
 
+async function analyzePersonalProfileAi(photoDataUrl, apiKey) {
+  if (!apiKey) throw new Error('API key required for AI personal profile analysis');
+  let mediaType = 'image/jpeg';
+  let base64 = photoDataUrl;
+  if (photoDataUrl.includes(',')) {
+    const parts = photoDataUrl.split(',');
+    const meta = parts[0];
+    base64 = parts[1];
+    const match = meta.match(/data:(.*);base64/);
+    if (match) mediaType = match[1];
+  }
+
+  const prompt = `You are a professional image consultant & personal stylist.
+Analyze the person in this photo for fashion styling.
+Return ONLY valid JSON:
+{
+  "skin_tone": "Fair | Wheatish | Tan | Deep",
+  "undertone": "Warm Golden | Cool Pink | Neutral Olive",
+  "color_season": "Warm Autumn | Cool Winter | Warm Spring | Cool Summer",
+  "best_hex_colors": ["#HEX1", "#HEX2", "#HEX3", "#HEX4"],
+  "avoid_hex_colors": ["#HEX1", "#HEX2"],
+  "body_shape": "Inverted Triangle | Rectangle / Athletic | Hourglass | Pear / Triangle | Oval / Rounded",
+  "proportions": "Short description of proportions",
+  "styling_advice": "1-2 sentence tailoring advice for this body shape and skin tone"
+}`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-sonnet-latest',
+      max_tokens: 600,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+
+  if (!res.ok) throw new Error('API error (' + res.status + ')');
+  const data = await res.json();
+  const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  return JSON.parse(text.replace(/```json|```/g, '').trim());
+}
+
 // Namespaced handle
 const PoshakOutfitEngine = {
   version: ENGINE_VERSION,
@@ -840,7 +893,8 @@ const PoshakOutfitEngine = {
   requestAiOutfit,
   analyzeClosetReadiness,
   requestAiClosetReview,
-  requestAiItemFields
+  requestAiItemFields,
+  analyzePersonalProfileAi
 };
 if (typeof window !== 'undefined') {
   window.PoshakOutfitEngine = PoshakOutfitEngine;

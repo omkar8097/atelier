@@ -301,11 +301,160 @@
     };
   }
 
+  /**
+   * 4. 100% Offline Personal Profile Intelligence (Skin Tone & Body Type)
+   */
+  function analyzeSkinTone(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    if (!w || !h) {
+      return { skinTone: 'Wheatish', undertone: 'Warm Golden', season: 'Warm Autumn', bestColors: ['#C99A3E', '#8C5E75', '#7C8F6E', '#C4667F'], avoidColors: ['#E5E5E5'] };
+    }
+
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+
+    let sumL = 0, sumA = 0, sumB = 0, count = 0;
+    let sumR = 0, sumG = 0, sumB_rgb = 0;
+
+    for (let i = 0; i < data.length; i += 16) {
+      const r = data[i], g = data[i + 1], b = data[i + 2], alpha = data[i + 3];
+      if (alpha < 128) continue;
+
+      // YCbCr skin mask conversion
+      const y = 0.299 * r + 0.587 * g + 0.114 * b;
+      const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+      const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+
+      if (y >= 60 && y <= 230 && cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) {
+        sumR += r; sumG += g; sumB_rgb += b;
+        // Simple Lab L*, b* approximation
+        const lVal = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const aVal = (r - g) * 0.5;
+        const bVal = (g - b) * 0.5;
+        sumL += lVal; sumA += aVal; sumB += bVal;
+        count++;
+      }
+    }
+
+    if (count < 10) {
+      return { skinTone: 'Intermediate / Wheatish', undertone: 'Warm Golden', season: 'Warm Autumn', bestColors: ['#C99A3E', '#8C5E75', '#7C8F6E', '#C47F3B'], avoidColors: ['#E5E5E5'] };
+    }
+
+    const meanL = sumL / count;
+    const meanA = sumA / count;
+    const meanB = sumB / count;
+
+    // Individual Typology Angle (ITA°)
+    const ita = Math.atan2(meanL - 50, Math.max(1, meanB)) * (180 / Math.PI);
+
+    let skinTone = 'Intermediate / Wheatish';
+    if (ita > 55) skinTone = 'Fair / Light';
+    else if (ita > 28) skinTone = 'Intermediate / Wheatish';
+    else if (ita > 10) skinTone = 'Tan / Dusky';
+    else skinTone = 'Deep';
+
+    let undertone = 'Warm Golden';
+    if (meanB > meanA * 1.05) undertone = 'Warm Golden';
+    else if (meanA > meanB * 0.95) undertone = 'Cool Pink / Red';
+    else undertone = 'Neutral Olive';
+
+    let season = 'Warm Autumn';
+    let bestColors = ['#C99A3E', '#8C5E75', '#7C8F6E', '#C47F3B'];
+    let avoidColors = ['#E5E5E5', '#D1D5DB'];
+
+    if (undertone.includes('Cool')) {
+      season = 'Cool Winter / Summer';
+      bestColors = ['#5B8FD9', '#C4667F', '#8C5E75', '#333B30'];
+      avoidColors = ['#C99A3E', '#D9A441'];
+    } else if (undertone.includes('Warm')) {
+      season = 'Warm Autumn / Spring';
+      bestColors = ['#C99A3E', '#7C8F6E', '#C47F3B', '#8C5E75'];
+      avoidColors = ['#E5E5E5', '#9CA3AF'];
+    } else {
+      season = 'Neutral Earth';
+      bestColors = ['#7C8F6E', '#8C5E75', '#C99A3E', '#5B8FD9'];
+      avoidColors = ['#FF0055'];
+    }
+
+    return { skinTone, undertone, season, bestColors, avoidColors, ita: Math.round(ita) };
+  }
+
+  function analyzeBodyType(canvas) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    if (!w || !h) {
+      return { bodyShape: 'Rectangle / Athletic', advice: 'Structured jackets, tailored shirts, and balanced trousers complement your frame.' };
+    }
+
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+
+    // Measure foreground widths at 25% (shoulder), 50% (waist), 75% (hip)
+    function getWidthAtY(yPct) {
+      const targetY = Math.floor(h * yPct);
+      let minX = w, maxX = 0;
+      for (let x = 0; x < w; x++) {
+        const idx = (targetY * w + x) * 4;
+        if (data[idx + 3] > 128) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+        }
+      }
+      return maxX > minX ? maxX - minX : w * 0.5;
+    }
+
+    const shoulderW = getWidthAtY(0.25);
+    const waistW = getWidthAtY(0.50);
+    const hipW = getWidthAtY(0.75);
+
+    const shoulderHipRatio = shoulderW / Math.max(1, hipW);
+    const shoulderWaistRatio = shoulderW / Math.max(1, waistW);
+    const hipWaistRatio = hipW / Math.max(1, waistW);
+
+    let bodyShape = 'Rectangle / Athletic';
+    let advice = 'Structured blazers, layered tops, and straight-fit trousers flatter your balanced posture.';
+
+    if (shoulderHipRatio > 1.15) {
+      bodyShape = 'Inverted Triangle';
+      advice = 'V-neck shirts, unbuttoned jackets, and relaxed chinos create a balanced silhouette.';
+    } else if (hipWaistRatio > 1.22 && shoulderWaistRatio > 1.22) {
+      bodyShape = 'Hourglass';
+      advice = 'Tailored waistlines, wrap tops, and fitted trousers highlight your natural proportions.';
+    } else if (hipW / Math.max(1, shoulderW) > 1.12) {
+      bodyShape = 'Pear / Triangle';
+      advice = 'Patterned or bright tops paired with dark solid bottoms draw attention upward seamlessly.';
+    } else if (waistW / Math.max(1, shoulderW) > 1.05) {
+      bodyShape = 'Oval / Rounded';
+      advice = 'Vertical patterns, monochrome ensembles, and open Nehru jackets elongate the silhouette.';
+    }
+
+    return { bodyShape, advice, shoulderHipRatio: Math.round(shoulderHipRatio * 100) / 100 };
+  }
+
+  function analyzePersonalProfile(canvas) {
+    const skin = analyzeSkinTone(canvas);
+    const body = analyzeBodyType(canvas);
+    return {
+      skinTone: skin.skinTone,
+      undertone: skin.undertone,
+      season: skin.season,
+      bestColors: skin.bestColors,
+      avoidColors: skin.avoidColors,
+      bodyShape: body.bodyShape,
+      advice: body.advice,
+      analyzedAt: new Date().toISOString()
+    };
+  }
+
   // Expose global interface
   window.PoshakColorUtils = {
     extractDominantColors,
     detectPattern,
     detectCategoryAndSmartFill,
+    analyzeSkinTone,
+    analyzeBodyType,
+    analyzePersonalProfile,
     rgbToHex,
     rgbToHsl
   };

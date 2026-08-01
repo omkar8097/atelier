@@ -1,4 +1,4 @@
-const CACHE_NAME = 'poshak-v17';
+const CACHE_NAME = 'poshak-v18';
 const SHELL_FILES = [
   './',
   './index.html',
